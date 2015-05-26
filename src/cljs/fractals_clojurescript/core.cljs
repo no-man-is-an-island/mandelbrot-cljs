@@ -78,8 +78,6 @@
 (set! (.-onmousedown overlay-canvas) (fn [e] (swap! app-state assoc :mousedown e)))
 
 (set! (.-onmousemove overlay-canvas) (fn [e] (when-let [mousedown (get @app-state :mousedown)]
-                                               (println (- (aget e "pageX") (aget mousedown "pageX"))
-                                                        (- (aget e "pageY") (aget mousedown "pageY")))
 
                                                (aset overlay-context "lineWidth" 1)
                                                (aset overlay-context "strokeStyle" "green")
