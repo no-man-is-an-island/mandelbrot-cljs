@@ -23,44 +23,6 @@
 (def idata (.createImageData context width height))
 (def data (.-data idata))
 
-
-(defn smoothed-count
-  "Smooth the iterations to a continuous value
-  (a la http://linas.org/art-gallery/escape/escape.html)"
-  [iterations final-modulus]
-  (- iterations
-     (/
-      (Math/log (Math/log (Math/sqrt final-modulus)))
-      (Math/log 2.0))))
-
-(defn iteration-count
-  "Gets us a continous analogue of the classic discrete iteration count"
-  [escape-radius-squared max-iterations initial-z]
-  (let [mod-z             (local)
-        real              (local)
-        imaginary         (local)
-        iterations        (local)
-
-        initial-real      (first initial-z)
-        initial-imaginary (second initial-z)]
-
-    (>> iterations 0)
-    (>> real initial-real)
-    (>> imaginary initial-imaginary)
-    (>> mod-z (+ (* (<< real) (<< real)) (* (<< imaginary) (<< imaginary))))
-
-    (while (not (or (< escape-radius-squared (<< mod-z))
-                    (= (<< iterations) max-iterations)))
-
-      (let [r (<< real) i (<< imaginary)]
-        (>> real (+ (* r r) (- (* i i)) initial-real))
-        (>> imaginary (+ (* 2 r i) initial-imaginary)))
-
-      (>> mod-z (+ (* (<< real) (<< real)) (* (<< imaginary) (<< imaginary))))
-      (>> iterations (inc (<< iterations))))
-
-    (smoothed-count (<< iterations) (<< mod-z))))
-
 (defn dot!
   "Colours the pixel at co-ordinates [x,y] in the color [r,g,b]"
   [x y r g b]
@@ -94,7 +56,7 @@
 
     (let [real       (+ (* x-size (/ x width)) x0)
           imaginary  (+ (* y-size (/ y height)) y0)
-          iterations (iteration-count escape-radius-squared max-iterations [real imaginary])
+          iterations (js/iteration_count escape-radius-squared max-iterations real imaginary)
           intensity  (* 255 (/ iterations max-iterations))]
 
       (dot! x y intensity intensity intensity)))))

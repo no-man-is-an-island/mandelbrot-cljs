@@ -43,6 +43,8 @@
                                    :output-to "resources/public/js/compiled/fractals.js"
                                    :output-dir "resources/public/js/compiled/out"
                                    :optimizations :none
+
+
                                    :source-map true
                                    :source-map-timestamp true
                                    :cache-analysis true}}]}
