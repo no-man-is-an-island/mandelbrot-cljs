@@ -1,8 +1,16 @@
-function smoothed_count(iterations, final_modulus){
+function smoothed_count(
+    iterations,
+    final_modulus){
+
     return iterations - (Math.log(Math.log(Math.sqrt(final_modulus))) / Math.log(2))
 }
 
-function iteration_count(escape_radius_squared, max_iterations, initial_real, initial_imaginary){
+function iteration_count(
+    escape_radius_squared,
+    max_iterations,
+    initial_real,
+    initial_imaginary){
+
     mod_z = (initial_real * initial_real) + (initial_imaginary * initial_imaginary);
 
     real = initial_real;
