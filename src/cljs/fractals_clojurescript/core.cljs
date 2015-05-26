@@ -87,17 +87,17 @@
       escape-radius-squared (* escape-radius escape-radius)
       max-iterations        (:max-iterations @app-state)]
 
-  (doseq [x (range width)]
-    (doseq [y (range height)]
-      (let [real       (+ (* x-size (/ x width)) x0)
+  (forloop
+   [(x 0) (< x width)  (inc x)]
+   (forloop
+    [(y 0) (< y height) (inc y)]
 
-            imaginary  (+ (* y-size (/ y height)) y0)
+    (let [real       (+ (* x-size (/ x width)) x0)
+          imaginary  (+ (* y-size (/ y height)) y0)
+          iterations (iteration-count escape-radius-squared max-iterations [real imaginary])
+          intensity  (* 255 (/ iterations max-iterations))]
 
-            iterations (iteration-count escape-radius-squared max-iterations [real imaginary])
-
-            intensity  (* 255 (/ iterations max-iterations))]
-
-        (dot! x y intensity intensity intensity)))))
+      (dot! x y intensity intensity intensity)))))
 
 (.putImageData context idata 0 0)
 
