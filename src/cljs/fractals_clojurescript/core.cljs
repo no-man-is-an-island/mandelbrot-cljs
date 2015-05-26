@@ -25,6 +25,8 @@
 
 
 (defn smoothed-count
+  "Smooth the iterations to a continuous value
+  (a la http://linas.org/art-gallery/escape/escape.html)"
   [iterations final-modulus]
   (- iterations
      (/
