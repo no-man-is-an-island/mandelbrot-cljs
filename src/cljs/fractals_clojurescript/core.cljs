@@ -15,14 +15,22 @@
 (def canvas (.getElementById js/document "app"))
 (def context (.getContext canvas "2d"))
 
+(def overlay-canvas (.getElementById js/document "overlay"))
+(def overlay-context (.getContext overlay-canvas "2d"))
+
+
+
 (defn render-mandelbrot!
-  [{:keys [scale x0 y0 escape-radius ] :as render-state}]
+  [{:keys [scale x0 y0 escape-radius] :as render-state}]
 
 
   (println render-state)
 
   (aset canvas "width"(.-innerWidth js/window))
   (aset canvas "height"(.-innerHeight js/window))
+
+  (aset overlay-canvas "width"(.-innerWidth js/window))
+  (aset overlay-canvas "height"(.-innerHeight js/window))
 
   (let [max-iterations        (int (* 10 (Math/log scale)))
         start                 (.getTime (js/Date.))
@@ -67,9 +75,26 @@
                           (:render-data new-state))
                (render-mandelbrot! (:render-data new-state)))))
 
-(set! (.-onmousedown canvas) (fn [e] (swap! app-state assoc :mousedown e)))
+(set! (.-onmousedown overlay-canvas) (fn [e] (swap! app-state assoc :mousedown e)))
 
-(set! (.-onmouseup canvas) (fn [e]
+(set! (.-onmousemove overlay-canvas) (fn [e] (when-let [mousedown (get @app-state :mousedown)]
+                                               (println (- (aget e "pageX") (aget mousedown "pageX"))
+                                                        (- (aget e "pageY") (aget mousedown "pageY")))
+
+                                               (aset overlay-context "lineWidth" 1)
+                                               (aset overlay-context "strokeStyle" "green")
+
+                                               (.clearRect overlay-context 0 0
+                                                           (aget overlay-canvas "width")
+                                                           (aget overlay-canvas "height"))
+
+                                               (.strokeRect overlay-context
+                                                            (aget mousedown "pageX")
+                                                            (aget mousedown "pageY")
+                                                            (- (aget e "pageX") (aget mousedown "pageX"))
+                                                            (- (aget e "pageY") (aget mousedown "pageY"))))))
+
+(set! (.-onmouseup overlay-canvas) (fn [e]
                              (when-let [mousedown (get @app-state :mousedown)]
                                (let [scale     (get-in @app-state [:render-data :scale])
 
@@ -81,17 +106,19 @@
                                      finish-y  (aget e "pageY")
 
                                      width     (aget canvas "width")
+                                     height    (aget canvas "height")
 
+                                     new-scale (/ width (/ (- finish-x start-x) scale))
                                      new-x0    (+ old-x0 (/ start-x scale))
-                                     new-y0    (- old-y0 (/ start-y scale))
-                                     new-scale (/ width (/ (- finish-x start-x) scale))]
+                                     new-y0    (- old-y0 (/ start-y scale))]
 
                                  (swap! app-state
                                         (fn [x]
                                           (-> x
                                               (assoc-in [:render-data :x0] new-x0)
                                               (assoc-in [:render-data :y0] new-y0)
-                                              (assoc-in [:render-data :scale] new-scale))))))))
+                                              (assoc-in [:render-data :scale] new-scale)
+                                              (dissoc :mousedown))))))))
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
