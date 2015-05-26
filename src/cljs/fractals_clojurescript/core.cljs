@@ -4,66 +4,94 @@
 (enable-console-print!)
 
 ; TODO: allow changing of this dynamically..
-(def app-state (atom {:max-iterations 100
-                      :escape-radius  10000
-                      :dimensions {:x0 -3   :x1 1
-                                   :y0 -1.5 :y1 1.5}}))
+(def app-state (atom {:render-data
+                      {
+                       ;:max-iterations 100
+                       :escape-radius  10000
+                       :scale          350 ; How many pixels a distance of 1 in the complex plane takes up
+                       :x0             -3
+                       :y0             1.2}}))
 
 (def canvas (.getElementById js/document "app"))
-
-(aset canvas "width"(.-innerWidth js/window))
-(aset canvas "height"(.-innerHeight js/window))
-
-
-(def width (.-width canvas))
-(def height (.-height canvas))
-
 (def context (.getContext canvas "2d"))
 
-(def idata (.createImageData context width height))
-(def data (.-data idata))
+(defn render-mandelbrot!
+  [{:keys [scale x0 y0 escape-radius ] :as render-state}]
 
-(defn dot!
-  "Colours the pixel at co-ordinates [x,y] in the color [r,g,b]"
-  [x y r g b]
-  (let [i (* 4 (+ x (* y width)))]
-    (aset data i r)
-    (aset data (+ i 1) g)
-    (aset data (+ i 2) b)
-    (aset data (+ i 3) 255)))
 
-(println "WIDTH: " width)
-(println "HEIGHT: " height)
+  (println render-state)
 
-(def start (.getTime (js/Date.)))
+  (aset canvas "width"(.-innerWidth js/window))
+  (aset canvas "height"(.-innerHeight js/window))
 
-(let [x0                    (get-in @app-state [:dimensions :x0])
-      x1                    (get-in @app-state [:dimensions :x1])
-      x-size                (- x1 x0)
+  (let [max-iterations        (int (* 10 (Math/log scale)))
+        start                 (.getTime (js/Date.))
 
-      y0                    (get-in @app-state [:dimensions :y0])
-      y1                    (get-in @app-state [:dimensions :y1])
-      y-size                (- y1 y0)
+        width                 (.-width canvas)
+        height                (.-height canvas)
 
-      escape-radius         (:escape-radius @app-state)
-      escape-radius-squared (* escape-radius escape-radius)
-      max-iterations        (:max-iterations @app-state)]
+        idata                 (.createImageData context width height)
+        data                  (.-data idata)
 
-  (forloop
-   [(x 0) (< x width)  (inc x)]
-   (forloop
-    [(y 0) (< y height) (inc y)]
+        escape-radius-squared (* escape-radius escape-radius)]
 
-    (let [real       (+ (* x-size (/ x width)) x0)
-          imaginary  (+ (* y-size (/ y height)) y0)
-          iterations (js/iteration_count escape-radius-squared max-iterations real imaginary)
-          intensity  (* 255 (/ iterations max-iterations))]
+    (forloop
+     [(x 0) (< x width)  (inc x)]
+     (forloop
+      [(y 0) (< y height) (inc y)]
 
-      (dot! x y intensity intensity intensity)))))
 
-(.putImageData context idata 0 0)
+      (let [real       (+ (/ x scale) x0)
+            imaginary  (- (/ y scale) y0)
+            iterations (js/iteration_count escape-radius-squared max-iterations real imaginary)
+            intensity  (* 255 (/ iterations max-iterations))
 
-(.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")
+            i (* 4 (+ x (* y width)))]
+
+        (aset data i intensity)
+        (aset data (+ i 1) intensity)
+        (aset data (+ i 2) intensity)
+        (aset data (+ i 3) 255))))
+
+    (.putImageData context idata 0 0)
+
+    (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
+
+(render-mandelbrot! (:render-data @app-state))
+
+(set! (.-onresize js/window) (fn [] (render-mandelbrot! (:render-data @app-state))))
+
+(add-watch app-state :state-changed
+           (fn [_ _ old-state new-state]
+             (when-not (= (:render-data old-state)
+                          (:render-data new-state))
+               (render-mandelbrot! (:render-data new-state)))))
+
+(set! (.-onmousedown canvas) (fn [e] (swap! app-state assoc :mousedown e)))
+
+(set! (.-onmouseup canvas) (fn [e]
+                             (when-let [mousedown (get @app-state :mousedown)]
+                               (let [scale     (get-in @app-state [:render-data :scale])
+
+                                     old-x0    (get-in @app-state [:render-data :x0])
+                                     old-y0    (get-in @app-state [:render-data :y0])
+                                     start-x   (aget mousedown "pageX")
+                                     start-y   (aget mousedown "pageY")
+                                     finish-x  (aget e "pageX")
+                                     finish-y  (aget e "pageY")
+
+                                     width     (aget canvas "width")
+
+                                     new-x0    (+ old-x0 (/ start-x scale))
+                                     new-y0    (- old-y0 (/ start-y scale))
+                                     new-scale (/ width (/ (- finish-x start-x) scale))]
+
+                                 (swap! app-state
+                                        (fn [x]
+                                          (-> x
+                                              (assoc-in [:render-data :x0] new-x0)
+                                              (assoc-in [:render-data :y0] new-y0)
+                                              (assoc-in [:render-data :scale] new-scale))))))))
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
