@@ -4,7 +4,7 @@
 (enable-console-print!)
 
 (def initial-rendering-data
-  {:scale          350 ; How many pixels a distance of 1 in the complex plane takes up
+  {:scale          (/ (.-innerWidth js/window) 4) ; How many pixels a distance of 1 in the complex plane takes up
    :x0             -3 ; the x co-ordinate of the top-left pixel in the canvase
    :y0             1.2 ; the y co-ordinate of the top-left pixel in the canvase
    })
@@ -20,13 +20,13 @@
   "Resets the rendering data to the original (i.e. reset the zoom)
    to something which should look ok on most screens"
   []
-  (swap! app-state :assoc :rendering-data initial-rendering-data))
+  (swap! app-state assoc :rendering-data initial-rendering-data))
 
 (defn set-canvas-dimensions!
   "Sets the canas to the same size as the enclosing window"
   [canvas]
-  (aset canvas "width"(.-innerWidth js/window))
-  (aset canvas "height"(.-innerHeight js/window)))
+  (aset canvas "width" (.-innerWidth js/window))
+  (aset canvas "height" (.-innerHeight js/window)))
 
 (defn clear-canvas!
   "Clears a whole canvas"
@@ -171,7 +171,6 @@
   (when-not (= (:rendering-data old-state)
                (:rendering-data new-state))
 
-    (println (:rendering-data new-state) (last @rendering-data-history))
     (when-not (= (:rendering-data new-state) (last @rendering-data-history))
       (swap! rendering-data-history conj (:rendering-data new-state)))
 
@@ -180,7 +179,6 @@
 (defn undo!
   "Revert app-state to the previous value"
   []
-  (println @rendering-data-history)
   (when (> (count @rendering-data-history) 1)
     (swap! rendering-data-history pop)
     (swap! app-state assoc :rendering-data (last @rendering-data-history))))
@@ -208,6 +206,12 @@
 
   (set! (.-onmouseup overlay-canvas) handle-mouseup))
 
+(defn open-as-png!
+  "Trigger a page change to "
+  [canvas]
+  (println (.toDataURL canvas "image/png"))
+  (.open js/window (.toDataURL canvas "image/png")))
+
 (defn init!
   "Initialise event handlers, add atom watches, do the first rendering"
   []
@@ -223,6 +227,20 @@
                    (aget e "ctrlKey"))
             (undo!))))
 
+  (set! (.-onkeydown js/window)
+        (fn [e ]
+          (when (and (= (aget e "keyCode") 73)
+                   (aget e "ctrlKey"))
+            (open-as-png! (:canvas @app-state)))))
+
+  (set! (.-onclick (.getElementById js/document "undo")) undo!)
+
+  (set! (.-onclick (.getElementById js/document "reset")) reset-rendering-data!)
+
+  (set! (.-onclick (.getElementById js/document "png"))
+        #(open-as-png! (:canvas @app-state)))
+
+
   (render-mandelbrot! @app-state))
 
 
@@ -230,4 +248,4 @@
   "A figwheel thing"
   [])
 
-(init!)
+(set! (.-onload js/window) init!)

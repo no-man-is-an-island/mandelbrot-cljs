@@ -24,6 +24,24 @@ body {
     font-family: arial;
 }
 
+#controls {
+    position: absolute;
+    color: black;
+    background-color: white;
+    z-index: 200;
+    left: 3px;
+    top: 3px;
+    font-family: arial;
+    font-size: 11px;
+    border-radius: 2px;
+}
+
+.button {
+    padding: 3px;
+    display: inline-block;
+    cursor: hand;
+}
+
 a:link {
     color: white;
 }
