@@ -209,7 +209,6 @@
 (defn open-as-png!
   "Trigger a page change to "
   [canvas]
-  (println (.toDataURL canvas "image/png"))
   (.open js/window (.toDataURL canvas "image/png")))
 
 (defn init!
@@ -222,7 +221,7 @@
   (add-overlay-handlers! (get @app-state :overlay-canvas))
 
   (set! (.-onkeydown js/window)
-        (fn [e ]
+        (fn [e]
           (when (and (= (aget e "keyCode") 90)
                    (aget e "ctrlKey"))
             (undo!))))
