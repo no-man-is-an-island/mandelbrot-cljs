@@ -24,7 +24,7 @@
   []
   (swap! app-state :assoc :rendering-data initial-rendering-data))
 
-(defn make-canvases-fill-window!
+(defn set-canvas-dimensions!
   "Sets the rendering canvas and the overlay canvas to the same
    size as the enclosing window"
   []
@@ -68,7 +68,7 @@
 
   (println render-state)
 
-  (make-canvases-fill-window!)
+  (set-canvas-dimensions!)
 
   (let [max-iterations        (int (* 10 (Math/log scale))) ; Sensible?
         start                 (.getTime (js/Date.))
@@ -115,6 +115,15 @@
                                           (aget e "pageY")
                                           :clear? true
                                           :color "green"))))
+
+(defn re-render!
+  [new-state]
+  (add-overlay-rectangle!
+   0 0
+   (aget overlay-canvas "width") (aget overlay-canvas "height")
+   :opacity 0.2 :color "green" :clear? true :type :fill)
+
+  (.setTimeout js/window #(render-mandelbrot! new-state) 50))
 
 
 (defn zoom-to-enclose-rectangle!
@@ -174,19 +183,13 @@
 
 (set! (.-onmouseup overlay-canvas) handle-mouseup)
 
-(set! (.-onresize js/window) (fn [] (render-mandelbrot! @app-state)))
+(set! (.-onresize js/window) (fn [] (re-render! @app-state)))
 
 (add-watch app-state :state-changed
            (fn [_ _ old-state new-state]
              (when-not (= (:rendering-data old-state)
                           (:rendering-data new-state))
-
-               (add-overlay-rectangle!
-                0 0
-                (aget overlay-canvas "width") (aget overlay-canvas "height")
-                :opacity 0.2 :color "green" :clear? true :type :fill)
-
-               (.setTimeout js/window #(render-mandelbrot! new-state) 10))))
+               (re-render! new-state))))
 
 (render-mandelbrot! @app-state)
 
