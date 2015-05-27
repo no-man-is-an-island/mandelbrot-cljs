@@ -1,5 +1,5 @@
 (ns mandelbrot-cljs.core
-  (:use-macros [mandelbrot-cljs.macros :only [forloop << >> local]]))
+  (:use-macros [mandelbrot-cljs.macros :only [forloop]]))
 
 (enable-console-print!)
 
