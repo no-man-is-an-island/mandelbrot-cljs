@@ -105,7 +105,7 @@
    overlay-canvas
    0 0
    (aget overlay-canvas "width") (aget overlay-canvas "height")
-   :opacity 0.2 :color "green" :clear? true :type :fill)
+   :opacity 0.1 :color "blue" :clear? false :type :fill)
 
   (.setTimeout js/window #(render-mandelbrot! new-state) 50))
 
@@ -182,23 +182,30 @@
                                             (aget e "pageX")
                                             (aget e "pageY")
                                             :clear? true
-                                            :color "green"))))
+                                            :type :stroke
+                                            :opacity 0.9
+                                            :color "red"))))
 
   (set! (.-onmouseup overlay-canvas) handle-mouseup))
 
+(defn init!
+  "Initialise event handlers, add atom watches, do the first rendering"
+  []
+  (set! (.-onresize js/window) (fn [] (re-render! @app-state)))
 
-(set! (.-onresize js/window) (fn [] (re-render! @app-state)))
+  (add-watch app-state :state-changed
+             (fn [_ _ old-state new-state]
+               (when-not (= (:rendering-data old-state)
+                            (:rendering-data new-state))
+                 (re-render! new-state))))
 
-(add-watch app-state :state-changed
-           (fn [_ _ old-state new-state]
-             (when-not (= (:rendering-data old-state)
-                          (:rendering-data new-state))
-               (re-render! new-state))))
+  (add-overlay-handlers! (get @app-state :overlay-canvas))
 
-(add-overlay-handlers! (get @app-state :overlay-canvas))
+  (render-mandelbrot! @app-state))
 
-(render-mandelbrot! @app-state)
 
 (defn on-js-reload
   "A figwheel thing"
   [])
+
+(init!)
