@@ -117,6 +117,9 @@
                                           :color "green"))))
 
 (defn re-render!
+  "Adds a green semi-transparent overlay to the screen, then
+  lines up a re-rendering (we need to yield control back to
+  the browser so that the overlay actually get rendered)"
   [new-state]
   (add-overlay-rectangle!
    0 0
