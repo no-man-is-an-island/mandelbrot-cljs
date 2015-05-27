@@ -9,10 +9,12 @@
 
             [clojure.java.io :as io]
 
-            [ring.server.standalone :refer [serve]]
+            [ring.adapter.jetty :refer [run-jetty]]
 
             [ring.middleware
-             [defaults :refer [site-defaults wrap-defaults]]]))
+             [defaults :refer [site-defaults wrap-defaults]]])
+
+  (:gen-class))
 
 
 (defroutes site-routes
@@ -26,3 +28,6 @@
 
 (def handler (-> site-routes
              (wrap-defaults site-defaults)))
+
+(defn -main [& args]
+  (run-jetty handler {:port 3000}))
