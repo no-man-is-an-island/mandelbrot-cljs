@@ -34,6 +34,30 @@
   (aset overlay-canvas "width"(.-innerWidth js/window))
   (aset overlay-canvas "height"(.-innerHeight js/window)))
 
+(defn clear-overlay!
+  "Clears the whole overlay canvas"
+  []
+  (.clearRect overlay-context 0 0
+              (aget overlay-canvas "width")
+              (aget overlay-canvas "height")))
+
+(defn add-overlay-rectangle!
+  "Adds a rectangle to the overlay canvas (and optionally clears all other rectangles)"
+  [x0 y0 x1 y1 & {:keys [clear? color opacity type] :or {clear? true color "green" opacity 1 type :stroke}}]
+  (aset overlay-context "globalAlpha" opacity)
+  (aset overlay-context "lineWidth" 1)
+
+
+  (when clear? (clear-overlay!))
+
+  (case type
+
+    :stroke (do (aset overlay-context "strokeStyle" color)
+                (.strokeRect overlay-context x0 y0 (- x1 x0) (- y1 y0)))
+
+    :fill (do (aset overlay-context "fillStyle" color)
+              (.fillRect overlay-context x0 y0 (- x1 x0) (- y1 y0)))))
+
 (defn render-mandelbrot!
   "Iterate over every pixel in the canvas, rendering the mandelbrot
   set at the specified scale. Uses a javascript function (in resources/public/js/fractal-maths.js)
@@ -74,20 +98,9 @@
 
     (.putImageData context idata 0 0)
 
+    (clear-overlay!)
+
     (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
-
-(defn add-overlay-rectangle!
-  "Adds a rectangle to the overlay canvas (and optionally clears all other rectangles)"
-  [x0 y0 x1 y1 & {:keys [clear? color] :or {clear? true color "green"}}]
-  (aset overlay-context "lineWidth" 1)
-  (aset overlay-context "strokeStyle" color)
-
-  (when clear?
-    (.clearRect overlay-context 0 0
-                (aget overlay-canvas "width")
-                (aget overlay-canvas "height")))
-
-  (.strokeRect overlay-context x0 y0 (- x1 x0) (- y1 y0)))
 
 (set! (.-onmousedown overlay-canvas) (fn [e]
                                        (swap! app-state assoc :mousedown-event e)))
@@ -167,7 +180,13 @@
            (fn [_ _ old-state new-state]
              (when-not (= (:rendering-data old-state)
                           (:rendering-data new-state))
-               (render-mandelbrot! new-state))))
+
+               (add-overlay-rectangle!
+                0 0
+                (aget overlay-canvas "width") (aget overlay-canvas "height")
+                :opacity 0.2 :color "green" :clear? true :type :fill)
+
+               (.setTimeout js/window #(render-mandelbrot! new-state) 10))))
 
 (render-mandelbrot! @app-state)
 
