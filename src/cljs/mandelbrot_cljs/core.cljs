@@ -10,12 +10,12 @@
 (def overlay-context (.getContext overlay-canvas "2d"))
 
 (def initial-rendering-data
-  {:escape-radius  10000
-   :scale          350 ; How many pixels a distance of 1 in the complex plane takes up
+  {:scale          350 ; How many pixels a distance of 1 in the complex plane takes up
    :x0             -3
    :y0             1.2})
 
-(defonce app-state (atom {:rendering-data initial-rendering-data}))
+(defonce app-state (atom {:escape-radius 10000
+                          :rendering-data initial-rendering-data}))
 
 (defn reset-rendering-data!
   "Resets the rendering data to the original (i.e. reset the zoom)
@@ -34,7 +34,8 @@
   (aset overlay-canvas "height"(.-innerHeight js/window)))
 
 (defn render-mandelbrot!
-  [{:keys [scale x0 y0 escape-radius] :as render-state}]
+  [{escape-radius                          :escape-radius
+    {:keys [scale x0 y0] :as render-state} :rendering-data}]
 
   (println render-state)
 
@@ -73,13 +74,13 @@
 
     (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
 
-(set! (.-onresize js/window) (fn [] (render-mandelbrot! (:rendering-data @app-state))))
+(set! (.-onresize js/window) (fn [] (render-mandelbrot! @app-state)))
 
 (add-watch app-state :state-changed
            (fn [_ _ old-state new-state]
              (when-not (= (:rendering-data old-state)
                           (:rendering-data new-state))
-               (render-mandelbrot! (:rendering-data new-state)))))
+               (render-mandelbrot! new-state))))
 
 (defn add-overlay-rectangle!
   "Adds a rectangle to the overlay canvas (and optionally clears all other rectangles)"
@@ -109,57 +110,65 @@
                                           :color "green"))))
 
 
+(defn zoom-to-enclose-rectangle!
+  "Returns a new rendering-data map to zoom the view of the mandelbrot to enclose a given
+  rectangle in the current screen. If the aspect ratio of the given rectangle
+  is not the same as that of the screen, it centers the given rectangle in the
+  screen (hard to explain.. imagine I've drawn a really nice picture of this here)"
+  [{:keys [scale] old-x0 :x0 old-y0 :y0} rect-x0 rect-y0 rect-x1 rect-y1]
+  (let [width            (aget canvas "width")
+        height           (aget canvas "height")
 
-(set! (.-onmouseup overlay-canvas) (fn [e]
-                                     (swap! app-state
-                                            (fn [{:keys [mousedown-event rendering-data] :as old-state}]
-                                              (let [scale            (:scale rendering-data)
+        portrait?        (< (- rect-x1 rect-x0) (- rect-y1 rect-y0))
 
-                                                    old-x0           (:x0 rendering-data)
-                                                    old-y0           (:y0 rendering-data)
+        new-scale        (if portrait?
+                           (/ height (/ (- rect-y1 rect-y0) scale))
+                           (/ width (/ (- rect-x1 rect-x0) scale)))
 
-                                                    start-x          (aget mousedown-event "pageX")
-                                                    start-y          (aget mousedown-event "pageY")
-                                                    finish-x         (aget e "pageX")
-                                                    finish-y         (aget e "pageY")
+        new-aspect-ratio (/ (- rect-x1 rect-x0) (- rect-y1 rect-y0))
 
-                                                    width            (aget canvas "width")
-                                                    height           (aget canvas "height")
+        padding          (* 0.5
+                            (if portrait?
+                              (- width (* height new-aspect-ratio))
+                              (- height (/ width new-aspect-ratio))))
 
-                                                    portrait?        (< (- finish-x start-x) (- finish-y start-y))
+        new-x0           (if portrait?
+                           (- (+ old-x0 (/ rect-x0 scale))
+                              (/ padding new-scale))
 
-                                                    new-scale        (if portrait?
-                                                                       (/ height (/ (- finish-y start-y) scale))
-                                                                       (/ width (/ (- finish-x start-x) scale)))
+                           (+ old-x0 (/ rect-x0 scale)))
 
-                                                    new-aspect-ratio (/ (- finish-x start-x)
-                                                                        (- finish-y start-y))
+        new-y0           (if portrait?
+                           (- old-y0 (/ rect-y0 scale))
 
-                                                    padding          (* 0.5
-                                                                        (if portrait?
-                                                                          (- width (* height new-aspect-ratio))
-                                                                          (- height (/ width new-aspect-ratio))))
+                           (+ (- old-y0 (/ rect-y0 scale))
+                              (/ padding new-scale)))]
 
-                                                    new-x0           (if portrait?
-                                                                       (- (+ old-x0 (/ start-x scale))
-                                                                          (/ padding new-scale))
-
-                                                                       (+ old-x0 (/ start-x scale)))
-
-                                                    new-y0           (if portrait?
-                                                                       (- old-y0 (/ start-y scale))
-
-                                                                       (+ (- old-y0 (/ start-y scale))
-                                                                          (/ padding new-scale)))]
-                                                (-> old-state
-                                                    (assoc-in [:rendering-data :x0] new-x0)
-                                                    (assoc-in [:rendering-data :y0] new-y0)
-                                                    (assoc-in [:rendering-data :scale] new-scale)
-
-                                                    (dissoc :mousedown-event)))))))
+    {:x0 new-x0
+     :y0 new-y0
+     :scale new-scale}))
 
 
-(render-mandelbrot! (:rendering-data @app-state))
+(defn handle-mouseup
+  "On mouseup, we zoom the mandelbrot to the specified box and remove the
+   :mousedown-event key from the app-state"
+  [e]
+  (swap! app-state
+         (fn [{:as old-state :keys [mousedown-event]}]
+
+           (let [x1 (aget e "pageX")
+                 y1 (aget e "pageY")
+                 x0 (aget mousedown-event "pageX")
+                 y0 (aget mousedown-event "pageY")]
+
+             (-> old-state
+                 (dissoc :mousedown-event)
+                 (update-in [:rendering-data] zoom-to-enclose-rectangle! x0 y0 x1 y1))))))
+
+(set! (.-onmouseup overlay-canvas) handle-mouseup)
+
+
+(render-mandelbrot! @app-state)
 
 (defn on-js-reload
   "A figwheel thing"
