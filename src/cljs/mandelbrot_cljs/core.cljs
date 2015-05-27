@@ -14,6 +14,8 @@
                           :escape-radius  10000
                           :rendering-data initial-rendering-data}))
 
+(defonce rendering-data-history (atom [initial-rendering-data]))
+
 (defn reset-rendering-data!
   "Resets the rendering data to the original (i.e. reset the zoom)
    to something which should look ok on most screens"
@@ -58,8 +60,6 @@
   variables for this kind of thing - I got it to be only ~10 times slower using the >> and << macros)"
   [{:keys [canvas overlay-canvas escape-radius]
     {:keys [scale x0 y0] :as render-state} :rendering-data}]
-
-  (println render-state)
 
   (set-canvas-dimensions! canvas)
   (set-canvas-dimensions! overlay-canvas)
@@ -165,6 +165,26 @@
                  (dissoc :mousedown-event)
                  (update-in [:rendering-data] zoom-to-enclose-rectangle! canvas x0 y0 x1 y1))))))
 
+(defn handle-state-change!
+  [_ _ old-state new-state]
+
+  (when-not (= (:rendering-data old-state)
+               (:rendering-data new-state))
+
+    (println (:rendering-data new-state) (last @rendering-data-history))
+    (when-not (= (:rendering-data new-state) (last @rendering-data-history))
+      (swap! rendering-data-history conj (:rendering-data new-state)))
+
+    (re-render! new-state)))
+
+(defn undo!
+  "Revert app-state to the previous value"
+  []
+  (println @rendering-data-history)
+  (when (> (count @rendering-data-history) 1)
+    (swap! rendering-data-history pop)
+    (swap! app-state assoc :rendering-data (last @rendering-data-history))))
+
 (defn add-overlay-handlers!
   "Adds handlers for zooming to the overlay canvas"
   [overlay-canvas]
@@ -193,13 +213,15 @@
   []
   (set! (.-onresize js/window) (fn [] (re-render! @app-state)))
 
-  (add-watch app-state :state-changed
-             (fn [_ _ old-state new-state]
-               (when-not (= (:rendering-data old-state)
-                            (:rendering-data new-state))
-                 (re-render! new-state))))
+  (add-watch app-state :state-changed handle-state-change!)
 
   (add-overlay-handlers! (get @app-state :overlay-canvas))
+
+  (set! (.-onkeydown js/window)
+        (fn [e ]
+          (when (and (= (aget e "keyCode") 90)
+                   (aget e "ctrlKey"))
+            (undo!))))
 
   (render-mandelbrot! @app-state))
 
