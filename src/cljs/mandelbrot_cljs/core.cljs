@@ -223,13 +223,11 @@
   (set! (.-onkeydown js/window)
         (fn [e]
           (when (and (= (aget e "keyCode") 90)
-                   (aget e "ctrlKey"))
-            (undo!))))
+                     (aget e "ctrlKey"))
+            (undo!))
 
-  (set! (.-onkeydown js/window)
-        (fn [e ]
           (when (and (= (aget e "keyCode") 73)
-                   (aget e "ctrlKey"))
+                     (aget e "ctrlKey"))
             (open-as-png! (:canvas @app-state)))))
 
   (set! (.-onclick (.getElementById js/document "undo")) undo!)
