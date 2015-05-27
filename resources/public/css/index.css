@@ -1,0 +1,41 @@
+body {
+    margin: 0;
+}
+
+#canvas {
+    z-index: 0;
+}
+
+#overlay-canvas {
+    z-index: 100;
+    top: 0;
+    left:0;
+    position:absolute;
+    cursor: crosshair;
+}
+
+#footnote {
+    position:absolute;
+    z-index: 200;
+    right:3px;
+    bottom: 3px;
+    color: white;
+    font-size: 10px;
+    font-family: arial;
+}
+
+a:link {
+    color: white;
+}
+
+a:visited {
+    color: white;
+}
+
+a:unvisited {
+    color: white;
+}
+
+a:active {
+    color: white;
+}
