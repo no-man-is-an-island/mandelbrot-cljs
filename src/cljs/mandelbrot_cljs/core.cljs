@@ -3,19 +3,15 @@
 
 (enable-console-print!)
 
-(def canvas (.getElementById js/document "app"))
-(def context (.getContext canvas "2d"))
-
-(def overlay-canvas (.getElementById js/document "overlay"))
-(def overlay-context (.getContext overlay-canvas "2d"))
-
 (def initial-rendering-data
   {:scale          350 ; How many pixels a distance of 1 in the complex plane takes up
    :x0             -3 ; the x co-ordinate of the top-left pixel in the canvase
    :y0             1.2 ; the y co-ordinate of the top-left pixel in the canvase
    })
 
-(defonce app-state (atom {:escape-radius 10000
+(defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
+                          :overlay-canvas (.getElementById js/document "overlay-canvas")
+                          :escape-radius  10000
                           :rendering-data initial-rendering-data}))
 
 (defn reset-rendering-data!
@@ -25,52 +21,52 @@
   (swap! app-state :assoc :rendering-data initial-rendering-data))
 
 (defn set-canvas-dimensions!
-  "Sets the rendering canvas and the overlay canvas to the same
-   size as the enclosing window"
-  []
+  "Sets the canas to the same size as the enclosing window"
+  [canvas]
   (aset canvas "width"(.-innerWidth js/window))
-  (aset canvas "height"(.-innerHeight js/window))
+  (aset canvas "height"(.-innerHeight js/window)))
 
-  (aset overlay-canvas "width"(.-innerWidth js/window))
-  (aset overlay-canvas "height"(.-innerHeight js/window)))
+(defn clear-canvas!
+  "Clears a whole canvas"
+  [canvas]
+  (let [context (.getContext canvas "2d")]
+    (.clearRect context 0 0 (aget canvas "width") (aget canvas "height"))))
 
-(defn clear-overlay!
-  "Clears the whole overlay canvas"
-  []
-  (.clearRect overlay-context 0 0
-              (aget overlay-canvas "width")
-              (aget overlay-canvas "height")))
-
-(defn add-overlay-rectangle!
-  "Adds a rectangle to the overlay canvas (and optionally clears all other rectangles)"
-  [x0 y0 x1 y1 & {:keys [clear? color opacity type] :or {clear? true color "green" opacity 1 type :stroke}}]
-  (aset overlay-context "globalAlpha" opacity)
-  (aset overlay-context "lineWidth" 1)
+(defn add-rectangle!
+  "Adds a (fill or stroke) rectangle to the canvas (and optionally clears all other rectangles)"
+  [canvas
+   x0 y0 x1 y1 & {:keys [clear? color opacity type] :or {clear? true color "green" opacity 1 type :stroke}}]
+  (let [context (.getContext canvas "2d")]
+    (aset context "globalAlpha" opacity)
+    (aset context "lineWidth" 1)
 
 
-  (when clear? (clear-overlay!))
+    (when clear? (clear-canvas! canvas))
 
-  (case type
+    (case type
 
-    :stroke (do (aset overlay-context "strokeStyle" color)
-                (.strokeRect overlay-context x0 y0 (- x1 x0) (- y1 y0)))
+      :stroke (do (aset context "strokeStyle" color)
+                  (.strokeRect context x0 y0 (- x1 x0) (- y1 y0)))
 
-    :fill (do (aset overlay-context "fillStyle" color)
-              (.fillRect overlay-context x0 y0 (- x1 x0) (- y1 y0)))))
+      :fill (do (aset context "fillStyle" color)
+                (.fillRect context x0 y0 (- x1 x0) (- y1 y0))))))
 
 (defn render-mandelbrot!
   "Iterate over every pixel in the canvas, rendering the mandelbrot
   set at the specified scale. Uses a javascript function (in resources/public/js/fractal-maths.js)
   for the hard maths, because clojurescript just wasn't cutting it speed wise (you really want local
   variables for this kind of thing - I got it to be only ~10 times slower using the >> and << macros)"
-  [{escape-radius                          :escape-radius
+  [{:keys [canvas overlay-canvas escape-radius]
     {:keys [scale x0 y0] :as render-state} :rendering-data}]
 
   (println render-state)
 
-  (set-canvas-dimensions!)
+  (set-canvas-dimensions! canvas)
+  (set-canvas-dimensions! overlay-canvas)
+  (clear-canvas! overlay-canvas)
 
-  (let [max-iterations        (int (* 10 (Math/log scale))) ; Sensible?
+  (let [context               (.getContext canvas "2d")
+        max-iterations        (int (* 10 (Math/log scale))) ; Sensible?
         start                 (.getTime (js/Date.))
 
         width                 (.-width canvas)
@@ -98,30 +94,15 @@
 
     (.putImageData context idata 0 0)
 
-    (clear-overlay!)
-
     (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
-
-(set! (.-onmousedown overlay-canvas) (fn [e]
-                                       (swap! app-state assoc :mousedown-event e)))
-
-(set! (.-onmousemove overlay-canvas) (fn [e]
-                                       (when-let [mousedown (get @app-state :mousedown-event)]
-
-                                         (add-overlay-rectangle!
-                                          (aget mousedown "pageX")
-                                          (aget mousedown "pageY")
-                                          (aget e "pageX")
-                                          (aget e "pageY")
-                                          :clear? true
-                                          :color "green"))))
 
 (defn re-render!
   "Adds a green semi-transparent overlay to the screen, then
   lines up a re-rendering (we need to yield control back to
   the browser so that the overlay actually get rendered)"
-  [new-state]
-  (add-overlay-rectangle!
+  [{:as new-state :keys [overlay-canvas]}]
+  (add-rectangle!
+   overlay-canvas
    0 0
    (aget overlay-canvas "width") (aget overlay-canvas "height")
    :opacity 0.2 :color "green" :clear? true :type :fill)
@@ -134,7 +115,7 @@
   rectangle in the current screen. If the aspect ratio of the given rectangle
   is not the same as that of the screen, it centers the given rectangle in the
   screen (hard to explain.. imagine I've drawn a really nice picture of this here)"
-  [{:keys [scale] old-x0 :x0 old-y0 :y0} rect-x0 rect-y0 rect-x1 rect-y1]
+  [{:keys [scale] old-x0 :x0 old-y0 :y0} canvas rect-x0 rect-y0 rect-x1 rect-y1]
   (let [width            (aget canvas "width")
         height           (aget canvas "height")
 
@@ -173,7 +154,7 @@
    :mousedown-event key from the app-state"
   [e]
   (swap! app-state
-         (fn [{:as old-state :keys [mousedown-event]}]
+         (fn [{:as old-state :keys [mousedown-event canvas]}]
 
            (let [x1 (aget e "pageX")
                  y1 (aget e "pageY")
@@ -182,9 +163,29 @@
 
              (-> old-state
                  (dissoc :mousedown-event)
-                 (update-in [:rendering-data] zoom-to-enclose-rectangle! x0 y0 x1 y1))))))
+                 (update-in [:rendering-data] zoom-to-enclose-rectangle! canvas x0 y0 x1 y1))))))
 
-(set! (.-onmouseup overlay-canvas) handle-mouseup)
+(defn add-overlay-handlers!
+  "Adds handlers for zooming to the overlay canvas"
+  [overlay-canvas]
+
+  (set! (.-onmousedown overlay-canvas) (fn [e]
+                                         (swap! app-state assoc :mousedown-event e)))
+
+  (set! (.-onmousemove overlay-canvas) (fn [e]
+                                         (when-let [mousedown (get @app-state :mousedown-event)]
+
+                                           (add-rectangle!
+                                            (get @app-state :overlay-canvas)
+                                            (aget mousedown "pageX")
+                                            (aget mousedown "pageY")
+                                            (aget e "pageX")
+                                            (aget e "pageY")
+                                            :clear? true
+                                            :color "green"))))
+
+  (set! (.-onmouseup overlay-canvas) handle-mouseup))
+
 
 (set! (.-onresize js/window) (fn [] (re-render! @app-state)))
 
@@ -193,6 +194,8 @@
              (when-not (= (:rendering-data old-state)
                           (:rendering-data new-state))
                (re-render! new-state))))
+
+(add-overlay-handlers! (get @app-state :overlay-canvas))
 
 (render-mandelbrot! @app-state)
 
