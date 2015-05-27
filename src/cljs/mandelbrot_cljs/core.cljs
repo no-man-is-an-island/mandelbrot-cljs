@@ -17,24 +17,28 @@
 
 (defonce app-state (atom {:rendering-data initial-rendering-data}))
 
-
-
 (defn reset-rendering-data!
   "Resets the rendering data to the original (i.e. reset the zoom)
    to something which should look ok on most screens"
   []
   (swap! app-state :assoc :rendering-data initial-rendering-data))
 
+(defn make-canvases-fill-window!
+  "Sets the rendering canvas and the overlay canvas to the same
+   size as the enclosing window"
+  []
+  (aset canvas "width"(.-innerWidth js/window))
+  (aset canvas "height"(.-innerHeight js/window))
+
+  (aset overlay-canvas "width"(.-innerWidth js/window))
+  (aset overlay-canvas "height"(.-innerHeight js/window)))
+
 (defn render-mandelbrot!
   [{:keys [scale x0 y0 escape-radius] :as render-state}]
 
   (println render-state)
 
-  (aset canvas "width"(.-innerWidth js/window))
-  (aset canvas "height"(.-innerHeight js/window))
-
-  (aset overlay-canvas "width"(.-innerWidth js/window))
-  (aset overlay-canvas "height"(.-innerHeight js/window))
+  (make-canvases-fill-window!)
 
   (let [max-iterations        (int (* 10 (Math/log scale))) ; Sensible?
         start                 (.getTime (js/Date.))
@@ -58,12 +62,12 @@
             iterations (js/mandelbrot_smoothed_iteration_count escape-radius-squared max-iterations real imaginary)
             intensity  (* 255 (/ iterations max-iterations))
 
-            i          (* 4 (+ x (* y width)))]
+            data-index (* 4 (+ x (* y width)))]
 
-        (aset data i intensity)
-        (aset data (+ i 1) intensity)
-        (aset data (+ i 2) intensity)
-        (aset data (+ i 3) 255))))
+        (aset data data-index intensity)
+        (aset data (+ data-index 1) intensity)
+        (aset data (+ data-index 2) intensity)
+        (aset data (+ data-index 3) 255))))
 
     (.putImageData context idata 0 0)
 
