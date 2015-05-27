@@ -5,7 +5,7 @@ function smoothed_count(
     return iterations - (Math.log(Math.log(Math.sqrt(final_modulus))) / Math.log(2))
 }
 
-function iteration_count(
+function mandelbrot_smoothed_iteration_count(
     escape_radius_squared,
     max_iterations,
     initial_real,

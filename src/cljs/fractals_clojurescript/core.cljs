@@ -3,11 +3,8 @@
 
 (enable-console-print!)
 
-; TODO: allow changing of this dynamically..
-(def app-state (atom {:render-data
-                      {
-                       ;:max-iterations 100
-                       :escape-radius  10000
+(def app-state (atom {:rendering-data
+                      {:escape-radius  10000
                        :scale          350 ; How many pixels a distance of 1 in the complex plane takes up
                        :x0             -3
                        :y0             1.2}}))
@@ -25,14 +22,13 @@
 
   (println render-state)
 
-
   (aset canvas "width"(.-innerWidth js/window))
   (aset canvas "height"(.-innerHeight js/window))
 
   (aset overlay-canvas "width"(.-innerWidth js/window))
   (aset overlay-canvas "height"(.-innerHeight js/window))
 
-  (let [max-iterations        (int (* 10 (Math/log scale)))
+  (let [max-iterations        (int (* 10 (Math/log scale))) ; Sensible?
         start                 (.getTime (js/Date.))
 
         width                 (.-width canvas)
@@ -51,10 +47,10 @@
 
       (let [real       (+ (/ x scale) x0)
             imaginary  (- (/ y scale) y0)
-            iterations (js/iteration_count escape-radius-squared max-iterations real imaginary)
+            iterations (js/mandelbrot_smoothed_iteration_count escape-radius-squared max-iterations real imaginary)
             intensity  (* 255 (/ iterations max-iterations))
 
-            i (* 4 (+ x (* y width)))]
+            i          (* 4 (+ x (* y width)))]
 
         (aset data i intensity)
         (aset data (+ i 1) intensity)
@@ -65,82 +61,84 @@
 
     (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
 
-(render-mandelbrot! (:render-data @app-state))
+(render-mandelbrot! (:rendering-data @app-state))
 
-(set! (.-onresize js/window) (fn [] (render-mandelbrot! (:render-data @app-state))))
+(set! (.-onresize js/window) (fn [] (render-mandelbrot! (:rendering-data @app-state))))
 
 (add-watch app-state :state-changed
            (fn [_ _ old-state new-state]
-             (when-not (= (:render-data old-state)
-                          (:render-data new-state))
-               (render-mandelbrot! (:render-data new-state)))))
+             (when-not (= (:rendering-data old-state)
+                          (:rendering-data new-state))
+               (render-mandelbrot! (:rendering-data new-state)))))
 
 (set! (.-onmousedown overlay-canvas) (fn [e] (swap! app-state assoc :mousedown e)))
 
-(set! (.-onmousemove overlay-canvas) (fn [e] (when-let [mousedown (get @app-state :mousedown)]
+(set! (.-onmousemove overlay-canvas) (fn [e]
 
-                                               (aset overlay-context "lineWidth" 1)
-                                               (aset overlay-context "strokeStyle" "green")
+                                       (when-let [mousedown (get @app-state :mousedown)]
 
-                                               (.clearRect overlay-context 0 0
-                                                           (aget overlay-canvas "width")
-                                                           (aget overlay-canvas "height"))
+                                         (aset overlay-context "lineWidth" 1)
+                                         (aset overlay-context "strokeStyle" "green")
 
-                                               (.strokeRect overlay-context
-                                                            (aget mousedown "pageX")
-                                                            (aget mousedown "pageY")
-                                                            (- (aget e "pageX") (aget mousedown "pageX"))
-                                                            (- (aget e "pageY") (aget mousedown "pageY"))))))
+                                         (.clearRect overlay-context 0 0
+                                                     (aget overlay-canvas "width")
+                                                     (aget overlay-canvas "height"))
+
+                                         (.strokeRect overlay-context
+                                                      (aget mousedown "pageX")
+                                                      (aget mousedown "pageY")
+                                                      (- (aget e "pageX") (aget mousedown "pageX"))
+                                                      (- (aget e "pageY") (aget mousedown "pageY"))))))
+
+
 
 (set! (.-onmouseup overlay-canvas) (fn [e]
-                                     (when-let [mousedown (get @app-state :mousedown)]
-                                       ; TODO: Make this much less confusing
-                                       (let [scale          (get-in @app-state [:render-data :scale])
+                                     (swap! app-state
+                                            (fn [{:keys [mousedown rendering-data] :as old-state}]
+                                              (let [scale            (:scale rendering-data)
 
-                                             old-x0         (get-in @app-state [:render-data :x0])
-                                             old-y0         (get-in @app-state [:render-data :y0])
-                                             start-x        (aget mousedown "pageX")
-                                             start-y        (aget mousedown "pageY")
-                                             finish-x       (aget e "pageX")
-                                             finish-y       (aget e "pageY")
+                                                    old-x0           (:x0 rendering-data)
+                                                    old-y0           (:y0 rendering-data)
 
-                                             width          (aget canvas "width")
-                                             height         (aget canvas "height")
-                                             aspect-ratio   (/ width height)
+                                                    start-x          (aget mousedown "pageX")
+                                                    start-y          (aget mousedown "pageY")
+                                                    finish-x         (aget e "pageX")
+                                                    finish-y         (aget e "pageY")
 
-                                             portrait?      (< (- finish-x start-x) (- finish-y start-y))
+                                                    width            (aget canvas "width")
+                                                    height           (aget canvas "height")
 
-                                             new-scale      (if portrait?
-                                                              (/ height (/ (- finish-y start-y) scale))
-                                                              (/ width (/ (- finish-x start-x) scale)))
+                                                    portrait?        (< (- finish-x start-x) (- finish-y start-y))
 
-                                             desired-aspect (/ (- finish-x start-x)
-                                                               (- finish-y start-y))
+                                                    new-scale        (if portrait?
+                                                                       (/ height (/ (- finish-y start-y) scale))
+                                                                       (/ width (/ (- finish-x start-x) scale)))
 
-                                             padding        (* 0.5
-                                                               (if portrait?
-                                                                 (- width (* height desired-aspect))
-                                                                 (- height (/ width desired-aspect))))
+                                                    new-aspect-ratio (/ (- finish-x start-x)
+                                                                        (- finish-y start-y))
 
-                                             new-x0         (if portrait?
-                                                              (- (+ old-x0 (/ start-x scale))
-                                                                 (/ padding new-scale))
+                                                    padding          (* 0.5
+                                                                        (if portrait?
+                                                                          (- width (* height new-aspect-ratio))
+                                                                          (- height (/ width) new-aspect-ratio)))
 
-                                                              (+ old-x0 (/ start-x scale)))
+                                                    new-x0           (if portrait?
+                                                                       (- (+ old-x0 (/ start-x scale))
+                                                                          (/ padding new-scale))
 
-                                             new-y0         (if portrait?
-                                                              (- old-y0 (/ start-y scale))
+                                                                       (+ old-x0 (/ start-x scale)))
 
-                                                              (+ (- old-y0 (/ start-y scale))
-                                                                 (/ padding new-scale)))]
+                                                    new-y0           (if portrait?
+                                                                       (- old-y0 (/ start-y scale))
 
-                                         (swap! app-state
-                                                (fn [x]
-                                                  (-> x
-                                                      (assoc-in [:render-data :x0] new-x0)
-                                                      (assoc-in [:render-data :y0] new-y0)
-                                                      (assoc-in [:render-data :scale] new-scale)
-                                                      (dissoc :mousedown))))))))
+                                                                       (+ (- old-y0 (/ start-y scale))
+                                                                          (/ padding new-scale)))]
+                                                (-> old-state
+                                                    (assoc-in [:rendering-data :x0] new-x0)
+                                                    (assoc-in [:rendering-data :y0] new-y0)
+                                                    (assoc-in [:rendering-data :scale] new-scale)
+
+                                                    (dissoc :mousedown)))))))
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
