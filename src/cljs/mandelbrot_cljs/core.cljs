@@ -11,8 +11,9 @@
 
 (def initial-rendering-data
   {:scale          350 ; How many pixels a distance of 1 in the complex plane takes up
-   :x0             -3
-   :y0             1.2})
+   :x0             -3 ; the x co-ordinate of the top-left pixel in the canvase
+   :y0             1.2 ; the y co-ordinate of the top-left pixel in the canvase
+   })
 
 (defonce app-state (atom {:escape-radius 10000
                           :rendering-data initial-rendering-data}))
@@ -34,6 +35,10 @@
   (aset overlay-canvas "height"(.-innerHeight js/window)))
 
 (defn render-mandelbrot!
+  "Iterate over every pixel in the canvas, rendering the mandelbrot
+  set at the specified scale. Uses a javascript function (in resources/public/js/fractal-maths.js)
+  for the hard maths, because clojurescript just wasn't cutting it speed wise (you really want local
+  variables for this kind of thing - I got it to be only ~10 times slower using the >> and << macros)"
   [{escape-radius                          :escape-radius
     {:keys [scale x0 y0] :as render-state} :rendering-data}]
 
@@ -46,7 +51,6 @@
 
         width                 (.-width canvas)
         height                (.-height canvas)
-
         idata                 (.createImageData context width height)
         data                  (.-data idata)
 
@@ -57,12 +61,10 @@
      (forloop
       [(y 0) (< y height) (inc y)]
 
-
       (let [real       (+ (/ x scale) x0)
             imaginary  (- (/ y scale) y0)
             iterations (js/mandelbrot_smoothed_iteration_count escape-radius-squared max-iterations real imaginary)
             intensity  (* 255 (/ iterations max-iterations))
-
             data-index (* 4 (+ x (* y width)))]
 
         (aset data data-index intensity)
@@ -73,14 +75,6 @@
     (.putImageData context idata 0 0)
 
     (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
-
-(set! (.-onresize js/window) (fn [] (render-mandelbrot! @app-state)))
-
-(add-watch app-state :state-changed
-           (fn [_ _ old-state new-state]
-             (when-not (= (:rendering-data old-state)
-                          (:rendering-data new-state))
-               (render-mandelbrot! new-state))))
 
 (defn add-overlay-rectangle!
   "Adds a rectangle to the overlay canvas (and optionally clears all other rectangles)"
@@ -167,6 +161,13 @@
 
 (set! (.-onmouseup overlay-canvas) handle-mouseup)
 
+(set! (.-onresize js/window) (fn [] (render-mandelbrot! @app-state)))
+
+(add-watch app-state :state-changed
+           (fn [_ _ old-state new-state]
+             (when-not (= (:rendering-data old-state)
+                          (:rendering-data new-state))
+               (render-mandelbrot! new-state))))
 
 (render-mandelbrot! @app-state)
 
