@@ -1,4 +1,4 @@
-(ns fractals-clojurescript.macros)
+(ns mandelbrot-cljs.macros)
 
 (defmacro forloop [[init test step] & body]
   `(loop [~@init]

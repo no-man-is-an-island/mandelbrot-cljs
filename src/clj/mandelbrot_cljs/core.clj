@@ -1,4 +1,4 @@
-(ns fractals-clojurescript.core
+(ns mandelbrot-cljs.core
 
   (:require [clojure.java.io :as io]
 
