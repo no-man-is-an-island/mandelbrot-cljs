@@ -9,10 +9,10 @@
   "Defines a rectangle (not necessarily of the same aspect ratio as the screen)
   in the complex plane to be displayed. This will then be centred on the screen
   using advanced maths."
-  {:x0             -3
-   :y0             1
-   :width          4
-   :height         2
+  {:x0             -1.6
+   :y0             1.2
+   :width          2
+   :height         2.4
    })
 
 (defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
