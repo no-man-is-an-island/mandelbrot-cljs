@@ -126,7 +126,8 @@
       (let [real       (+ (/ x scale) x0)
             imaginary  (- (/ y scale) y0)
             iterations (js/mandelbrot_smoothed_iteration_count escape-radius-squared max-iterations real imaginary)
-            intensity  (* 255 (/ iterations max-iterations))
+
+            intensity  (if (>= iterations max-iterations) 0 (* 255 (/ iterations max-iterations)))
             data-index (* 4 (+ x (* y screen-width)))]
 
         (aset data data-index intensity)
@@ -176,6 +177,26 @@
                                    :width  (- x*1 x*0)
                                    :height (- y*0 y*1)}))))))
 
+(defn handle-mousemove
+  "Draw a rectangle when we're zooming"
+  [e]
+
+  #_(let [{:keys [x0 y0 scale]} (:rendered-rectangle @app-state)]
+    (.log js/console (str "X: " (+ x0 (/ (aget e "pageX") scale)) "Y: " (- y0 (/ (aget e "pageY") scale)))))
+
+  (when-let [mousedown (get @app-state :mousedown-event)]
+
+    (add-rectangle!
+     (get @app-state :overlay-canvas)
+     (aget mousedown "pageX")
+     (aget mousedown "pageY")
+     (aget e "pageX")
+     (aget e "pageY")
+     :clear? true
+     :type :stroke
+     :opacity 0.9
+     :color "red")))
+
 (defn handle-state-change!
   [_ _ old-state new-state]
 
@@ -201,19 +222,7 @@
   (set! (.-onmousedown overlay-canvas) (fn [e]
                                          (swap! app-state assoc :mousedown-event e)))
 
-  (set! (.-onmousemove overlay-canvas) (fn [e]
-                                         (when-let [mousedown (get @app-state :mousedown-event)]
-
-                                           (add-rectangle!
-                                            (get @app-state :overlay-canvas)
-                                            (aget mousedown "pageX")
-                                            (aget mousedown "pageY")
-                                            (aget e "pageX")
-                                            (aget e "pageY")
-                                            :clear? true
-                                            :type :stroke
-                                            :opacity 0.9
-                                            :color "red"))))
+  (set! (.-onmousemove overlay-canvas) handle-mousemove)
 
   (set! (.-onmouseup overlay-canvas) handle-mouseup))
 

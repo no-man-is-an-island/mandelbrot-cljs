@@ -1,8 +1,16 @@
 function smoothed_count(
     iterations,
-    final_modulus){
+    final_modulus_squared){
 
-    return iterations - (Math.log(Math.log(Math.sqrt(final_modulus))) / Math.log(2))
+    final_modulus = Math.sqrt(final_modulus_squared);
+
+    if (final_modulus< 1){
+        return iterations
+    }
+    else{
+
+        return iterations - (Math.log(Math.log(final_modulus)) / Math.log(2))
+    }
 }
 
 function mandelbrot_smoothed_iteration_count(
