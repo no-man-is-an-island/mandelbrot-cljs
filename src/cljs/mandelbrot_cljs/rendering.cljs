@@ -111,7 +111,7 @@
 
         (swap! app-state update-in [:stats] assoc
                :render-speed render-speed
-               :scale (int scale)
+               :scale (long scale)
                :max-iterations max-iterations)
 
         (.log js/console "Done in: " render-speed "px/s")))))
