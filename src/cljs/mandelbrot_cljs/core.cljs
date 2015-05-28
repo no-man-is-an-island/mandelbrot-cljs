@@ -4,9 +4,13 @@
 (enable-console-print!)
 
 (def initial-rendering-data
-  {:scale          (/ (.-innerWidth js/window) 4) ; How many pixels a distance of 1 in the complex plane takes up
-   :x0             -3 ; the x co-ordinate of the top-left pixel in the canvase
-   :y0             1.2 ; the y co-ordinate of the top-left pixel in the canvase
+  "Defines a rectangle (not necessarily of the same aspect ratio as the screen)
+  in the complex plane to be displayed. This will then be centred on the screen
+  using advanced maths."
+  {:x0             -3
+   :y0             1
+   :width          4
+   :height         2
    })
 
 (defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
@@ -53,39 +57,78 @@
       :fill (do (aset context "fillStyle" color)
                 (.fillRect context x0 y0 (- x1 x0) (- y1 y0))))))
 
+(defn enclosing-rectangle
+  "Calculates an enclosing rectangle which contains the given
+  one centered on the screen (would you believe that working
+  this out was the hardest thing in this project?)"
+  [x0 y0 width height screen-width screen-height]
+  (let [portrait?    (>= height width)
+
+        aspect-ratio (/ width height)
+
+        padding      (if portrait?
+                       (- screen-width (* screen-height aspect-ratio))
+                       (- screen-height (/ screen-width aspect-ratio)))
+
+        scale        (if portrait?
+                       (/ screen-height height)
+                       (/ screen-width width))]
+
+    (if portrait?
+      {:x0     (- x0 (* 0.5 (/ padding scale)))
+       :y0     y0
+       :width  (+ width (/ padding scale))
+       :height height
+       :scale  scale}
+
+      {:x0     x0
+       :y0     (+ y0 (* 0.5 (/ padding scale)))
+       :width  width
+       :height (+ height (/ padding scale))
+       :scale  scale})))
+
 (defn render-mandelbrot!
   "Iterate over every pixel in the canvas, rendering the mandelbrot
   set at the specified scale. Uses a javascript function (in resources/public/js/fractal-maths.js)
   for the hard maths, because clojurescript just wasn't cutting it speed wise (you really want local
   variables for this kind of thing - I got it to be only ~10 times slower using the >> and << macros)"
   [{:keys [canvas overlay-canvas escape-radius]
-    {:keys [scale x0 y0] :as render-state} :rendering-data}]
+    {:keys [width height x0 y0] :as render-state} :rendering-data}]
+
+  (println render-state)
 
   (set-canvas-dimensions! canvas)
   (set-canvas-dimensions! overlay-canvas)
   (clear-canvas! overlay-canvas)
 
-  (let [context               (.getContext canvas "2d")
-        max-iterations        (int (* 10 (Math/log scale))) ; Sensible?
-        start                 (.getTime (js/Date.))
+  (let [screen-width             (.-width canvas)
+        screen-height            (.-height canvas)
+        {:keys [x0 y0 scale]
+         :as rendered-rectangle} (enclosing-rectangle x0 y0 width height screen-width screen-height)
 
-        width                 (.-width canvas)
-        height                (.-height canvas)
-        idata                 (.createImageData context width height)
-        data                  (.-data idata)
+        context                  (.getContext canvas "2d")
+        max-iterations           (int (* 10 (Math/log scale))) ; Sensible?
+        start                    (.getTime (js/Date.))
 
-        escape-radius-squared (* escape-radius escape-radius)]
+
+        idata                    (.createImageData context screen-width screen-height)
+        data                     (.-data idata)
+
+        escape-radius-squared    (* escape-radius escape-radius)]
+
+    (println rendered-rectangle)
+    (swap! app-state assoc :rendered-rectangle rendered-rectangle)
 
     (forloop
-     [(x 0) (< x width)  (inc x)]
+     [(x 0) (< x screen-width)  (inc x)]
      (forloop
-      [(y 0) (< y height) (inc y)]
+      [(y 0) (< y screen-height) (inc y)]
 
       (let [real       (+ (/ x scale) x0)
             imaginary  (- (/ y scale) y0)
             iterations (js/mandelbrot_smoothed_iteration_count escape-radius-squared max-iterations real imaginary)
             intensity  (* 255 (/ iterations max-iterations))
-            data-index (* 4 (+ x (* y width)))]
+            data-index (* 4 (+ x (* y screen-width)))]
 
         (aset data data-index intensity)
         (aset data (+ data-index 1) intensity)
@@ -94,7 +137,8 @@
 
     (.putImageData context idata 0 0)
 
-    (.log js/console "Done in: " (int (* 1000 (/ (* height width)  (- (.getTime (js/Date.)) start)))) "px/s")))
+    (.log js/console "Done in: " (int (* 1000 (/ (* screen-height screen-width)
+                                                 (- (.getTime (js/Date.)) start)))) "px/s")))
 
 (defn re-render!
   "Adds a green semi-transparent overlay to the screen, then
@@ -110,60 +154,28 @@
   (.setTimeout js/window #(render-mandelbrot! new-state) 50))
 
 
-(defn zoom-to-enclose-rectangle!
-  "Returns a new rendering-data map to zoom the view of the mandelbrot to enclose a given
-  rectangle in the current screen. If the aspect ratio of the given rectangle
-  is not the same as that of the screen, it centers the given rectangle in the
-  screen (hard to explain.. imagine I've drawn a really nice picture of this here)"
-  [{:keys [scale] old-x0 :x0 old-y0 :y0} canvas rect-x0 rect-y0 rect-x1 rect-y1]
-  (let [width            (aget canvas "width")
-        height           (aget canvas "height")
-
-        portrait?        (< (- rect-x1 rect-x0) (- rect-y1 rect-y0))
-
-        new-scale        (if portrait?
-                           (/ height (/ (- rect-y1 rect-y0) scale))
-                           (/ width (/ (- rect-x1 rect-x0) scale)))
-
-        new-aspect-ratio (/ (- rect-x1 rect-x0) (- rect-y1 rect-y0))
-
-        padding          (* 0.5
-                            (if portrait?
-                              (- width (* height new-aspect-ratio))
-                              (- height (/ width new-aspect-ratio))))
-
-        new-x0           (if portrait?
-                           (- (+ old-x0 (/ rect-x0 scale))
-                              (/ padding new-scale))
-
-                           (+ old-x0 (/ rect-x0 scale)))
-
-        new-y0           (if portrait?
-                           (- old-y0 (/ rect-y0 scale))
-
-                           (+ (- old-y0 (/ rect-y0 scale))
-                              (/ padding new-scale)))]
-
-    {:x0 new-x0
-     :y0 new-y0
-     :scale new-scale}))
-
-
 (defn handle-mouseup
   "On mouseup, we zoom the mandelbrot to the specified box and remove the
    :mousedown-event key from the app-state"
   [e]
-  (swap! app-state
-         (fn [{:as old-state :keys [mousedown-event canvas]}]
+  (swap!
+   app-state
+   (fn [{:as old-state :keys [mousedown-event canvas rendered-rectangle]}]
 
-           (let [x1 (aget e "pageX")
-                 y1 (aget e "pageY")
-                 x0 (aget mousedown-event "pageX")
-                 y0 (aget mousedown-event "pageY")]
+     (let [{:keys [x0 y0 scale]}        rendered-rectangle
 
-             (-> old-state
-                 (dissoc :mousedown-event)
-                 (update-in [:rendering-data] zoom-to-enclose-rectangle! canvas x0 y0 x1 y1))))))
+           x*1                           (+ x0 (/ (aget e "pageX") scale))
+           y*1                           (- y0 (/ (aget e "pageY") scale))
+
+           x*0                           (+ x0 (/ (aget mousedown-event "pageX") scale))
+           y*0                           (- y0 (/ (aget mousedown-event "pageY") scale))]
+
+       (-> old-state
+           (dissoc :mousedown-event)
+           (assoc :rendering-data {:x0     x*0
+                                   :y0     y*0
+                                   :width  (- x*1 x*0)
+                                   :height (- y*0 y*1)}))))))
 
 (defn handle-state-change!
   [_ _ old-state new-state]
