@@ -20,6 +20,8 @@ I started with a pure clojurescript implementation, but I couldn't speed it up s
 
 The number of iterations (i.e. the 'precision' of the rendering) is set to increase logarithmically with the 'level' of zoom (i.e. the number of pixels a distance of 1 in the complex plane takes up). I don't know if there's a theoretical basis for this, but it seems to work quite well. If you zoom in enough the limits of floating point precision break the visualisation (when the number of pixels representing a distance of 1 reaches around 1 billion billion)
 
+You will need to compile the clojurescript to be able to run this - I've been using [figwheel](https://github.com/bhauman/lein-figwheel) for dynamic development. 
+
 ## License
 
 Copyright © 2015 David Williams
