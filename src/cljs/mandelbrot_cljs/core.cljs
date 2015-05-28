@@ -35,12 +35,28 @@
 
 (defn render-stats!
   [app-state]
-  (let [{:keys [render-speed scale] :as stats} (get @app-state :stats)]
+  (let [{:keys [render-speed scale current-x current-y current-iterations max-iterations]
+         :as stats}
+        (get @app-state :stats)]
     (aset (.getElementById js/document "renderSpeed") "innerHTML"
           (str "Speed: " (format-comma render-speed) "px/s"))
 
     (aset (.getElementById js/document "scale") "innerHTML"
-          (str "Scale: " (format-comma scale) ))))
+          (str "Scale: " (format-comma scale) ))
+
+    (aset (.getElementById js/document "maxIterations") "innerHTML"
+          (str "Max Iterations: " (format-comma max-iterations) ))
+
+    (aset (.getElementById js/document "currentX") "innerHTML"
+          (str "Real: " current-x))
+
+    (aset (.getElementById js/document "currentY") "innerHTML"
+          (str "Imaginary: " current-y ))
+
+    (aset (.getElementById js/document "currentIterations") "innerHTML"
+          (str "Iterations to Escape: " (if (= "infinity" current-iterations)
+                                          "infinity"
+                                          (format-comma current-iterations)) ))))
 
 (defn zoom-to!
   [startx starty width height]
@@ -89,8 +105,18 @@
   "Draw a rectangle when we're zooming"
   [e]
 
-  #_(let [{:keys [x0 y0 scale]} (:rendered-rectangle @app-state)]
-    (.log js/console (str "X: " (+ x0 (/ (aget e "pageX") scale)) "Y: " (- y0 (/ (aget e "pageY") scale)))))
+  (let [{:keys [x0 y0 scale]} (:rendered-rectangle @app-state)
+        x                     (+ x0 (/ (aget e "pageX") scale))
+        y                     (- y0 (/ (aget e "pageY") scale))
+        max-iterations        (int (* 10 (Math/log scale)))
+        iterations            (js/mandelbrot_smoothed_iteration_count
+                               (* (:escape-radius @app-state) (:escape-radius @app-state))
+                               max-iterations
+                               x y)]
+    (swap! app-state update-in [:stats] assoc
+           :current-x x
+           :current-y y
+           :current-iterations (if (>= iterations max-iterations) "infinity" (long iterations))))
 
   (when-let [mousedown (get @app-state :mousedown-event)]
 
