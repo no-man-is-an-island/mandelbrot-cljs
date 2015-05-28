@@ -41,6 +41,17 @@ body {
     padding: 3px;
     display: inline-block;
     cursor: hand;
+
+}
+
+.unselectable {
+
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+
 }
 
 a:link {
