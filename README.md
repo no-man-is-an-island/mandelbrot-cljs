@@ -10,7 +10,7 @@ The demo can be found at [http://mandelbrot.davidwilliams.london](http://mandelb
 * Ctrl-Z/Undo to undo the last thing you did (thanks functional programming!)
 * Ctrl-I/Get Image to generate a PNG of the canvas
 * Reset (or just refresh the page) to get back to the original zoom level 
-* Show Stats - Add a box showing stats about rendering speed, zoom level etc.
+* Toggle Stats - Display/hide a box showing stats about rendering speed, zoom level etc.
 
 ## Technical Stuff
 
