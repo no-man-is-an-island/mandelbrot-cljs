@@ -73,6 +73,7 @@ a:active {
     Background: white;
     z-index: 50;
     display: none;
+    min-width: 200px;
 }
 
 #statsTitle {
