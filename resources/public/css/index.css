@@ -40,7 +40,7 @@ body {
 .button {
     padding: 3px;
     display: inline-block;
-    cursor: hand;
+    cursor: pointer;
 
 }
 
