@@ -1,7 +1,7 @@
 (ns mandelbrot-cljs.canvas
   "Some helper functions for using HTML5 Canvas")
 
-(defn set-canvas-dimensions!
+(defn maximize-canvas-dimensions!
   "Sets the canas to the same size as the enclosing window"
   [canvas]
   (aset canvas "width" (.-innerWidth js/window))

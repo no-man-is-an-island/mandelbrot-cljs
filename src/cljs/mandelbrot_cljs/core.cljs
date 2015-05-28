@@ -1,5 +1,5 @@
 (ns mandelbrot-cljs.core
-  (:require [mandelbrot-cljs.canvas :refer [set-canvas-dimensions! clear-canvas!
+  (:require [mandelbrot-cljs.canvas :refer [maximize-canvas-dimensions! clear-canvas!
                                             add-rectangle! open-as-png!]])
   (:use-macros [mandelbrot-cljs.macros :only [forloop]]))
 
@@ -68,8 +68,8 @@
 
   (println render-state)
 
-  (set-canvas-dimensions! canvas)
-  (set-canvas-dimensions! overlay-canvas)
+  (maximize-canvas-dimensions! canvas)
+  (maximize-canvas-dimensions! overlay-canvas)
   (clear-canvas! overlay-canvas)
 
   (let [screen-width             (.-width canvas)
