@@ -116,7 +116,6 @@
 
         escape-radius-squared    (* escape-radius escape-radius)]
 
-    (println rendered-rectangle)
     (swap! app-state assoc :rendered-rectangle rendered-rectangle)
 
     (forloop
