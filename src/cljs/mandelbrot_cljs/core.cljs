@@ -196,6 +196,17 @@
 
   (set! (.-onmouseup overlay-canvas) handle-mouseup))
 
+(defn handle-keydown!
+  "Bind ctrl-z to undo and ctrl-i to open-image"
+  [e]
+  (when (and (= (aget e "keyCode") 90)
+             (aget e "ctrlKey"))
+    (undo!))
+
+  (when (and (= (aget e "keyCode") 73)
+             (aget e "ctrlKey"))
+    (open-as-png! (:canvas @app-state))))
+
 (defn init!
   "Initialise event handlers, add atom watches, do the first rendering"
   []
@@ -205,22 +216,13 @@
 
   (add-overlay-handlers! (get @app-state :overlay-canvas))
 
-  (set! (.-onkeydown js/window)
-        (fn [e]
-          (when (and (= (aget e "keyCode") 90)
-                     (aget e "ctrlKey"))
-            (undo!))
-
-          (when (and (= (aget e "keyCode") 73)
-                     (aget e "ctrlKey"))
-            (open-as-png! (:canvas @app-state)))))
+  (set! (.-onkeydown js/window) handle-keydown!)
 
   (set! (.-onclick (.getElementById js/document "undo")) undo!)
 
   (set! (.-onclick (.getElementById js/document "reset")) reset-rendering-data!)
 
-  (set! (.-onclick (.getElementById js/document "png"))
-        #(open-as-png! (:canvas @app-state)))
+  (set! (.-onclick (.getElementById js/document "png")) #(open-as-png! (:canvas @app-state)))
 
 
   (render-mandelbrot! @app-state))
