@@ -202,7 +202,7 @@
 
   (set! (.-onclick (.getElementById js/document "png")) #(open-as-png! (:canvas @app-state)))
 
-  (set! (.-onclick (.getElementById js/document "showStats")) toggle-stats!)
+  (set! (.-onclick (.getElementById js/document "toggleStats")) toggle-stats!)
 
 
   (re-render! app-state))
