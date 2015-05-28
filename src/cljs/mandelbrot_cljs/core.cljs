@@ -4,7 +4,7 @@
                                                initial-rendering-data
                                                reset-rendering-data!]]
 
-            [clojure.string :as string]))
+            [mandelbrot-cljs.stats :refer [render-stats! toggle-stats!]]))
 
 (enable-console-print!)
 
@@ -18,45 +18,21 @@
 
 (defonce rendering-data-history (atom [initial-rendering-data]))
 
-(defn format-comma
-  [x]
-  (letfn [(format-comma' [x]
-            (->> x
-                 str
-                 reverse
-                 (partition-all 3)
-                 (map reverse)
-                 reverse
-                 (map string/join)
-                 (string/join ",")))]
-    (if (neg? x)
-      (str "-" (format-comma' (* -1 x)))
-      (format-comma' x))))
+(defn handle-state-change!
+  [_ app-state old-state new-state]
 
-(defn render-stats!
-  [app-state]
-  (let [{:keys [render-speed scale current-x current-y current-iterations max-iterations]
-         :as stats}
-        (get @app-state :stats)]
-    (aset (.getElementById js/document "renderSpeed") "innerHTML"
-          (str "Render Speed: " (format-comma render-speed) " px/s"))
+  (when-not (= (:rendering-data old-state)
+               (:rendering-data new-state))
 
-    (aset (.getElementById js/document "scale") "innerHTML"
-          (str "Scale: " (format-comma scale) ))
+    (when-not (= (:rendering-data new-state) (last @rendering-data-history))
+      (swap! rendering-data-history conj (:rendering-data new-state)))
 
-    (aset (.getElementById js/document "maxIterations") "innerHTML"
-          (str "Max Iterations: " (format-comma max-iterations) ))
+    (re-render! app-state))
 
-    (aset (.getElementById js/document "currentX") "innerHTML"
-          (str "Real: " current-x))
+  (when-not (= (:stats old-state)
+               (:stats new-state))
 
-    (aset (.getElementById js/document "currentY") "innerHTML"
-          (str "Imaginary: " current-y ))
-
-    (aset (.getElementById js/document "currentIterations") "innerHTML"
-          (str "Iterations to Escape: " (if (= "infinity" current-iterations)
-                                          "infinity"
-                                          (format-comma current-iterations)) ))))
+    (render-stats! app-state)))
 
 (defn zoom-to!
   [startx starty width height]
@@ -71,16 +47,13 @@
                                    :width (/ width scale)
                                    :height (/ height scale)}))))))
 
-(defn modulus
-  [x]
-  (Math/sqrt (* x x)))
-
 (defn handle-mouseup
   "On mouseup, we zoom the mandelbrot to the specified box and remove the
    :mousedown-event key from the app-state"
   [e]
 
-  (let [startx  (aget (:mousedown-event @app-state) "pageX")
+  (let [modulus (fn [x] (Math/sqrt (* x x)))
+        startx  (aget (:mousedown-event @app-state) "pageX")
         starty  (aget (:mousedown-event @app-state) "pageY")
         finishx (aget e "pageX")
         finishy (aget e "pageY")]
@@ -131,22 +104,6 @@
      :opacity 0.9
      :color "red")))
 
-(defn handle-state-change!
-  [_ app-state old-state new-state]
-
-  (when-not (= (:rendering-data old-state)
-               (:rendering-data new-state))
-
-    (when-not (= (:rendering-data new-state) (last @rendering-data-history))
-      (swap! rendering-data-history conj (:rendering-data new-state)))
-
-    (re-render! app-state))
-
-  (when-not (= (:stats old-state)
-               (:stats new-state))
-
-    (render-stats! app-state)))
-
 (defn undo!
   "Revert app-state to the previous value"
   []
@@ -175,16 +132,6 @@
              (aget e "ctrlKey"))
     (open-as-png! (:canvas @app-state))))
 
-(defn toggle-stats!
-  [e]
-  (if (:show-stats? @app-state)
-    (do
-      (swap! app-state assoc :show-stats? false)
-      (aset (aget (.getElementById js/document "stats") "style") "display" "none"))
-    (do
-      (swap! app-state assoc :show-stats? true)
-      (aset (aget (.getElementById js/document "stats") "style") "display" "block"))))
-
 (defn init!
   "Initialise event handlers, add atom watches, do the first rendering"
   []
@@ -202,7 +149,7 @@
 
   (set! (.-onclick (.getElementById js/document "png")) #(open-as-png! (:canvas @app-state)))
 
-  (set! (.-onclick (.getElementById js/document "toggleStats")) toggle-stats!)
+  (set! (.-onclick (.getElementById js/document "toggleStats")) (fn [e] (toggle-stats! app-state e)))
 
 
   (re-render! app-state))
