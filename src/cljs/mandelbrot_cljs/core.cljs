@@ -31,21 +31,27 @@
 (defn enclosing-rectangle
   "Calculates an enclosing rectangle which contains the given
   one centered on the screen (would you believe that working
-  this out was the hardest thing in this project?)"
+  this out was the hardest thing in this project?)
+
+  The metric to use is whether the aspect ratio of the desired
+  rectangle is greater than the aspect ratio of the screen or not.
+  This lets us determine whether to pad the rectangle out in
+  the x-dimension or the y-dimension"
   [x0 y0 width height screen-width screen-height]
-  (let [portrait?    (>= height width)
+  (let [aspect-ratio        (/ width height)
+        screen-aspect-ratio (/ screen-width screen-height)
 
-        aspect-ratio (/ width height)
+        pad-x?              (<= aspect-ratio screen-aspect-ratio)
 
-        padding      (if portrait?
-                       (- screen-width (* screen-height aspect-ratio))
-                       (- screen-height (/ screen-width aspect-ratio)))
+        padding             (if pad-x?
+                              (- screen-width (* screen-height aspect-ratio))
+                              (- screen-height (/ screen-width aspect-ratio)))
 
-        scale        (if portrait?
-                       (/ screen-height height)
-                       (/ screen-width width))]
+        scale               (if pad-x?
+                              (/ screen-height height)
+                              (/ screen-width width))]
 
-    (if portrait?
+    (if pad-x?
       {:x0     (- x0 (* 0.5 (/ padding scale)))
        :y0     y0
        :width  (+ width (/ padding scale))
