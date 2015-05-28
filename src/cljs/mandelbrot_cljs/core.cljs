@@ -39,7 +39,7 @@
          :as stats}
         (get @app-state :stats)]
     (aset (.getElementById js/document "renderSpeed") "innerHTML"
-          (str "Render Speed: " (format-comma render-speed) "px/s"))
+          (str "Render Speed: " (format-comma render-speed) " px/s"))
 
     (aset (.getElementById js/document "scale") "innerHTML"
           (str "Scale: " (format-comma scale) ))
