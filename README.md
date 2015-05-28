@@ -4,9 +4,16 @@ A (mostly!) clojurescript interactive [Mandelbrot Set](http://en.wikipedia.org/w
 
 The demo can be found at [http://mandelbrot.davidwilliams.london](http://mandelbrot.davidwilliams.london)
 
+## Instructions
+
+* Click (mainly for mobile) or select an area to zoom in.
+* Ctrl-Z/Undo to undo the last thing you did (thanks functional programming!)
+* Ctrl-I/Get Image to generate a PNG of the canvas
+* Reset (or just refresh the page) to get back to the original zoom level 
+
 ## Technical Stuff
 
-I cribbed some help with the sometimes impenetrable Canvas API (and found the [iteration smoothing technique](http://linas.org/art-gallery/escape/escape.html) for extra prettiness) in [cslarsen's javascript mandelbrot implementation](https://github.com/cslarsen/mandelbrot-js). Almost everything else has been done from first principles though.
+I cribbed some help with the (sometimes impenetrable) Canvas API (and found the [iteration smoothing technique](http://linas.org/art-gallery/escape/escape.html) for extra prettiness in the rendering) in [cslarsen's javascript mandelbrot implementation](https://github.com/cslarsen/mandelbrot-js). Almost everything else has been done from first principles.
 
 I started with a pure clojurescript implementation, but I couldn't speed it up sufficiently without mutable state. I played around with [swannodette's macros for this](https://github.com/swannodette/chambered/blob/master/src/chambered/macros.clj) which use arrays of length one as mutable state, but it was still around 10 times slower than a pure javascript version. Hence, the 'hard maths' of iterating the complex number operations is done in a small javascript library and the user interaction, re-rendering etc. is done in clojurescript.
 
