@@ -15,28 +15,48 @@
 (defonce rendering-data-history (atom [initial-rendering-data]))
 
 
+(defn zoom-to!
+  [startx starty width height]
+  (swap!
+   app-state
+   (fn [{:as old-state :keys [mousedown-event overlay-canvas rendered-rectangle]}]
+     (let [{:keys [x0 y0 scale]} rendered-rectangle]
+       (-> old-state
+           (dissoc :mousedown-event)
+           (assoc :rendering-data {:x0 (+ x0 (/ startx scale))
+                                   :y0 (- y0 (/ starty scale))
+                                   :width (/ width scale)
+                                   :height (/ height scale)}))))))
+
+(defn modulus
+  [x]
+  (Math/sqrt (* x x)))
+
 (defn handle-mouseup
   "On mouseup, we zoom the mandelbrot to the specified box and remove the
    :mousedown-event key from the app-state"
   [e]
-  (swap!
-   app-state
-   (fn [{:as old-state :keys [mousedown-event canvas rendered-rectangle]}]
 
-     (let [{:keys [x0 y0 scale]}        rendered-rectangle
+  (let [startx  (aget (:mousedown-event @app-state) "pageX")
+        starty  (aget (:mousedown-event @app-state) "pageY")
+        finishx (aget e "pageX")
+        finishy (aget e "pageY")]
 
-           x*1                           (+ x0 (/ (aget e "pageX") scale))
-           y*1                           (- y0 (/ (aget e "pageY") scale))
+    (if (or (< (modulus (- startx finishx)) 10)
+            (< (modulus (- starty finishy)) 10)) ; Does this look like a click?
 
-           x*0                           (+ x0 (/ (aget mousedown-event "pageX") scale))
-           y*0                           (- y0 (/ (aget mousedown-event "pageY") scale))]
+      (do
+        (add-rectangle! (:overlay-canvas @app-state)
+                        (Math/max 0 (- startx 100))
+                        (Math/max 0 (- starty 100))
+                        (+ startx 100)
+                        (+ starty 100)
+                        :clear? true
+                        :color "red"
+                        :type :stroke)
+        (zoom-to! (Math/max 0 (- startx 100)) (Math/max 0 (- starty 100)) 200 200))
 
-       (-> old-state
-           (dissoc :mousedown-event)
-           (assoc :rendering-data {:x0     x*0
-                                   :y0     y*0
-                                   :width  (- x*1 x*0)
-                                   :height (- y*0 y*1)}))))))
+      (zoom-to! (Math/min startx finishx) (Math/min starty finishy) (modulus (- finishx startx)) (modulus (- finishy starty))))))
 
 (defn handle-mousemove
   "Draw a rectangle when we're zooming"
