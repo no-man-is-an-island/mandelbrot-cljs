@@ -218,7 +218,7 @@
   (set! (.-onmouseup overlay-canvas) handle-mouseup))
 
 (defn open-as-png!
-  "Trigger a page change to "
+  "Open a new tab or window containing a png version of the canvas"
   [canvas]
   (.open js/window (.toDataURL canvas "image/png")))
 
