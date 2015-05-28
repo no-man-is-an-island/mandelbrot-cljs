@@ -77,11 +77,10 @@
         {:keys [x0 y0 scale]
          :as rendered-rectangle} (enclosing-rectangle x0 y0 width height screen-width screen-height)
 
-        context                  (.getContext canvas "2d")
         max-iterations           (int (* 10 (Math/log scale))) ; Sensible?
         start                    (.getTime (js/Date.))
 
-
+        context                  (.getContext canvas "2d")
         idata                    (.createImageData context screen-width screen-height)
         data                     (.-data idata)
 
