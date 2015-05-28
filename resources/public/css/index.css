@@ -58,3 +58,23 @@ a:unvisited {
 a:active {
     color: white;
 }
+
+
+#stats {
+    position: absolute;
+    right: 3px;
+    top: 3px;
+    color: red;
+    font-family: arial;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 3px;
+    Background: white;
+    z-index: 50;
+    display: none;
+}
+
+#statsTitle {
+    text-decoration: underline;
+}

@@ -106,8 +106,14 @@
 
       (.putImageData context idata 0 0)
 
-      (.log js/console "Done in: " (int (* 1000 (/ (* screen-height screen-width)
-                                                   (- (.getTime (js/Date.)) start)))) "px/s"))))
+      (let [render-speed (int (* 1000 (/ (* screen-height screen-width)
+                                         (- (.getTime (js/Date.)) start))))]
+
+        (swap! app-state update-in [:stats] assoc
+               :render-speed render-speed
+               :scale (int scale))
+
+        (.log js/console "Done in: " render-speed "px/s")))))
 
 (defn re-render!
   "Adds a blue semi-transparent overlay to the screen, then

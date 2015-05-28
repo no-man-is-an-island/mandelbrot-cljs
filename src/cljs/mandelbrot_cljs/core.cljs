@@ -2,7 +2,9 @@
   (:require [mandelbrot-cljs.canvas :refer [add-rectangle! open-as-png!]]
             [mandelbrot-cljs.rendering :refer [re-render!
                                                initial-rendering-data
-                                               reset-rendering-data!]]))
+                                               reset-rendering-data!]]
+
+            [clojure.string :as string]))
 
 (enable-console-print!)
 
@@ -10,10 +12,35 @@
 (defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
                           :overlay-canvas (.getElementById js/document "overlay-canvas")
                           :escape-radius  10000
-                          :rendering-data initial-rendering-data}))
+                          :rendering-data initial-rendering-data
+                          :show-stats?    false
+                          :stats          {}}))
 
 (defonce rendering-data-history (atom [initial-rendering-data]))
 
+(defn format-comma
+  [x]
+  (letfn [(format-comma' [x]
+            (->> x
+                 str
+                 reverse
+                 (partition-all 3)
+                 (map reverse)
+                 reverse
+                 (map string/join)
+                 (string/join ",")))]
+    (if (neg? x)
+      (str "-" (format-comma' (* -1 x)))
+      (format-comma' x))))
+
+(defn render-stats!
+  [app-state]
+  (let [{:keys [render-speed scale] :as stats} (get @app-state :stats)]
+    (aset (.getElementById js/document "renderSpeed") "innerHTML"
+          (str "Speed: " (format-comma render-speed) "px/s"))
+
+    (aset (.getElementById js/document "scale") "innerHTML"
+          (str "Scale: " (format-comma scale) ))))
 
 (defn zoom-to!
   [startx starty width height]
@@ -87,7 +114,12 @@
     (when-not (= (:rendering-data new-state) (last @rendering-data-history))
       (swap! rendering-data-history conj (:rendering-data new-state)))
 
-    (re-render! app-state)))
+    (re-render! app-state))
+
+  (when-not (= (:stats old-state)
+               (:stats new-state))
+
+    (render-stats! app-state)))
 
 (defn undo!
   "Revert app-state to the previous value"
@@ -100,8 +132,7 @@
   "Adds handlers for zooming to the overlay canvas"
   [overlay-canvas]
 
-  (set! (.-onmousedown overlay-canvas) (fn [e]
-                                         (swap! app-state assoc :mousedown-event e)))
+  (set! (.-onmousedown overlay-canvas) (fn [e] (swap! app-state assoc :mousedown-event e)))
 
   (set! (.-onmousemove overlay-canvas) handle-mousemove)
 
@@ -117,6 +148,16 @@
   (when (and (= (aget e "keyCode") 73)
              (aget e "ctrlKey"))
     (open-as-png! (:canvas @app-state))))
+
+(defn toggle-stats!
+  [e]
+  (if (:show-stats? @app-state)
+    (do
+      (swap! app-state assoc :show-stats? false)
+      (aset (aget (.getElementById js/document "stats") "style") "display" "none"))
+    (do
+      (swap! app-state assoc :show-stats? true)
+      (aset (aget (.getElementById js/document "stats") "style") "display" "block"))))
 
 (defn init!
   "Initialise event handlers, add atom watches, do the first rendering"
@@ -134,6 +175,8 @@
   (set! (.-onclick (.getElementById js/document "reset")) #(reset-rendering-data! app-state))
 
   (set! (.-onclick (.getElementById js/document "png")) #(open-as-png! (:canvas @app-state)))
+
+  (set! (.-onclick (.getElementById js/document "showStats")) toggle-stats!)
 
 
   (re-render! app-state))
