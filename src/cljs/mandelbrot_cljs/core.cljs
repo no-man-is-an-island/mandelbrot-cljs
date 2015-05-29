@@ -55,7 +55,7 @@
         startx  (aget (:mousedown-event @app-state) "pageX")
         starty  (aget (:mousedown-event @app-state) "pageY")
         finishx (aget e "pageX")
-        finishy (aget e "pageY")]
+        finishy {aget e "pageY"}]
 
     (if (or (< (modulus (- startx finishx)) 10)
             (< (modulus (- starty finishy)) 10)) ; Does this look like a click?
@@ -157,7 +157,7 @@
                                    (assoc :rendered-rectangle rendered-rectangle))))
 
 
-            (put! messages [:add-to-rendering-data-history (:rendering-data @app-state)])
+            (put! messages [:add-to-rendering-data-history (:rendering-data body)])
             (put! messages [:update-stats stats])))
 
         :add-to-rendering-data-history (when-not (= body (last @rendering-data-history))
