@@ -32,6 +32,21 @@
       :fill (do (aset context "fillStyle" color)
                 (.fillRect context x0 y0 (- x1 x0) (- y1 y0))))))
 
+(defn add-semi-opaque-overlay!
+  [overlay-canvas]
+  (add-rectangle!
+   overlay-canvas
+   0 0
+   (aget overlay-canvas "width") (aget overlay-canvas "height")
+   :opacity 0.1 :color "blue" :clear? false :type :fill))
+
+(defn add-zoom-box!
+  [overlay-canvas x0 y0 x1 y1]
+  (add-rectangle!
+   overlay-canvas
+   x0 y0 x1 y1
+   :clear? true :color "red" :type :stroke))
+
 (defn open-as-png!
   "Open a new tab or window containing a png version of the canvas"
   [canvas]

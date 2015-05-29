@@ -1,10 +1,14 @@
 (ns mandelbrot-cljs.core
-  (:require [mandelbrot-cljs.canvas :refer [add-rectangle! open-as-png!]]
-            [mandelbrot-cljs.rendering :refer [re-render!
-                                               initial-rendering-data
-                                               reset-rendering-data!]]
+  (:require [mandelbrot-cljs.canvas :refer [add-zoom-box! add-semi-opaque-overlay!
+                                            open-as-png! clear-canvas! maximize-canvas-dimensions!]]
+            [mandelbrot-cljs.rendering :refer [render-mandelbrot!
+                                               initial-rendering-data]]
 
-            [mandelbrot-cljs.stats :refer [render-stats! toggle-stats!]]))
+            [mandelbrot-cljs.stats :refer [render-stats!]]
+
+            [cljs.core.async :refer [chan <! put!]])
+
+  (:require-macros [cljs.core.async.macros :refer [go-loop]]))
 
 (enable-console-print!)
 
@@ -13,29 +17,23 @@
                           :overlay-canvas (.getElementById js/document "overlay-canvas")
                           :escape-radius  10000
                           :rendering-data initial-rendering-data
-                          :show-stats?    false
                           :stats          {}}))
 
 (defonce rendering-data-history (atom [initial-rendering-data]))
 
-(defn handle-state-change!
-  [_ app-state old-state new-state]
-
-  (when-not (= (:rendering-data old-state)
-               (:rendering-data new-state))
-
-    (when-not (= (:rendering-data new-state) (last @rendering-data-history))
-      (swap! rendering-data-history conj (:rendering-data new-state)))
-
-    (re-render! app-state))
-
-  (when-not (= (:stats old-state)
-               (:stats new-state))
-
-    (render-stats! app-state)))
+(defn undo!
+  "Revert app-state to the previous value and queue up a re-render
+   (when there is a previous state to undo into)"
+  [messages]
+  (when (> (count @rendering-data-history) 1)
+    (swap! rendering-data-history pop)
+    (swap! app-state assoc :rendering-data (last @rendering-data-history))
+    (put! messages [:render])))
 
 (defn zoom-to!
-  [startx starty width height]
+  "Calculate what the given rectangle corresponds to in the complex
+   plane and trigger a re-rendering to enclose it."
+  [messages startx starty finishx finishy]
   (swap!
    app-state
    (fn [{:as old-state :keys [mousedown-event overlay-canvas rendered-rectangle]}]
@@ -44,13 +42,14 @@
            (dissoc :mousedown-event)
            (assoc :rendering-data {:x0 (+ x0 (/ startx scale))
                                    :y0 (- y0 (/ starty scale))
-                                   :width (/ width scale)
-                                   :height (/ height scale)}))))))
+                                   :width (/ (- finishx startx) scale)
+                                   :height (/ (- finishy starty) scale)})))))
+  (put! messages [:render]))
 
 (defn handle-mouseup
   "On mouseup, we zoom the mandelbrot to the specified box and remove the
    :mousedown-event key from the app-state"
-  [e]
+  [messages e]
 
   (let [modulus (fn [x] (Math/sqrt (* x x)))
         startx  (aget (:mousedown-event @app-state) "pageX")
@@ -61,22 +60,21 @@
     (if (or (< (modulus (- startx finishx)) 10)
             (< (modulus (- starty finishy)) 10)) ; Does this look like a click?
 
-      (do
-        (add-rectangle! (:overlay-canvas @app-state)
-                        (Math/max 0 (- startx 100))
-                        (Math/max 0 (- starty 100))
-                        (+ startx 100)
-                        (+ starty 100)
-                        :clear? true
-                        :color "red"
-                        :type :stroke)
-        (zoom-to! (Math/max 0 (- startx 100)) (Math/max 0 (- starty 100)) 200 200))
+      (put! messages [:zoom-to {:x0 (Math/max 0 (- startx 100))
+                                :y0 (Math/max 0 (- starty 100))
+                                :x1 (+ startx 100)
+                                :y1 (+ starty 100)}])
 
-      (zoom-to! (Math/min startx finishx) (Math/min starty finishy) (modulus (- finishx startx)) (modulus (- finishy starty))))))
+      (put! messages [:zoom-to {:x0 (Math/min startx finishx)
+                                :y0 (Math/min starty finishy)
+                                :x1 (Math/max startx finishx)
+                                :y1 (Math/max starty finishy)}]))))
 
 (defn handle-mousemove
-  "Draw a rectangle when we're zooming"
-  [e]
+  "Draw a rectangle when we're tracing a box to zoom to, and update the
+  stats to show information about the point in the plane the mouse cursor
+  is at."
+  [messages e]
 
   (let [{:keys [x0 y0 scale]} (:rendered-rectangle @app-state)
         x                     (+ x0 (/ (aget e "pageX") scale))
@@ -86,73 +84,129 @@
                                (* (:escape-radius @app-state) (:escape-radius @app-state))
                                max-iterations
                                x y)]
-    (swap! app-state update-in [:stats] assoc
-           :current-x x
-           :current-y y
-           :current-iterations (if (>= iterations max-iterations) "infinity" (long iterations))))
+
+    (put! messages [:update-stats {:current-x x
+                                   :current-y y
+                                   :current-iterations
+                                   (if (>= iterations max-iterations) "infinity" (long iterations))}]))
 
   (when-let [mousedown (get @app-state :mousedown-event)]
 
-    (add-rectangle!
+    (add-zoom-box!
      (get @app-state :overlay-canvas)
      (aget mousedown "pageX")
      (aget mousedown "pageY")
      (aget e "pageX")
-     (aget e "pageY")
-     :clear? true
-     :type :stroke
-     :opacity 0.9
-     :color "red")))
-
-(defn undo!
-  "Revert app-state to the previous value"
-  []
-  (when (> (count @rendering-data-history) 1)
-    (swap! rendering-data-history pop)
-    (swap! app-state assoc :rendering-data (last @rendering-data-history))))
-
-(defn add-overlay-handlers!
-  "Adds handlers for zooming to the overlay canvas"
-  [overlay-canvas]
-
-  (set! (.-onmousedown overlay-canvas) (fn [e] (swap! app-state assoc :mousedown-event e)))
-
-  (set! (.-onmousemove overlay-canvas) handle-mousemove)
-
-  (set! (.-onmouseup overlay-canvas) handle-mouseup))
+     (aget e "pageY"))))
 
 (defn handle-keydown!
   "Bind ctrl-z to undo and ctrl-i to open-image"
-  [e]
+  [messages e]
   (when (and (= (aget e "keyCode") 90)
              (aget e "ctrlKey"))
-    (undo!))
+    (put! messages [:undo]))
 
   (when (and (= (aget e "keyCode") 73)
              (aget e "ctrlKey"))
-    (open-as-png! (:canvas @app-state))))
+    (put! messages [:open-as-png (:canvas @app-state)])))
+
+
+(defn start-event-handler!
+  "Main handler for messages on our core.async channel"
+  [messages]
+  (go-loop []
+    (when-let [[event body] (<! messages)]
+      (case event
+
+        :log (.log js/console (:message body))
+
+        :undo (undo! messages)
+
+        :open-as-png (open-as-png! body)
+
+        :clear-canvases (doseq [canvas body] (clear-canvas! canvas))
+
+        :reset-rendering-data (when-not (= initial-rendering-data (:rendering-data @app-state))
+                                (swap! app-state assoc :rendering-data initial-rendering-data)
+                                (put! messages [:render]))
+
+        :render
+
+        (do
+          (add-semi-opaque-overlay! (:overlay-canvas @app-state))
+
+          ; We have to yield back to the browser so it can render the overlay
+          (.setTimeout
+           js/window
+           (fn []
+             (put! messages [:render-mandelbrot (select-keys @app-state [:rendering-data :canvas :overlay-canvas])])
+             (put! messages [:clear-canvases [(:overlay-canvas @app-state)]]))
+           100))
+
+        :render-mandelbrot
+
+        (do
+          (maximize-canvas-dimensions! (:overlay-canvas body))
+          (maximize-canvas-dimensions! (:canvas body))
+
+          (let [{:keys [rendered-rectangle stats]}
+                (render-mandelbrot! (:canvas body) (:rendering-data body))]
+
+            (swap! app-state (fn [old-state]
+                               (-> old-state
+                                   (assoc :rendered-rectangle rendered-rectangle))))
+
+
+            (put! messages [:add-to-rendering-data-history (:rendering-data @app-state)])
+            (put! messages [:update-stats stats])))
+
+        :add-to-rendering-data-history (when-not (= body (last @rendering-data-history))
+                                         (swap! rendering-data-history conj body))
+
+        :zoom-to (let [{:keys [x0 x1 y0 y1]} body]
+                   (add-zoom-box! (:overlay-canvas @app-state) x0 y0 x1 y1)
+                   (zoom-to! messages x0 y0 x1 y1))
+
+        :update-stats (do
+                        (swap! app-state update-in [:stats] merge body)
+                        (render-stats! (:stats @app-state)))
+
+        :toggle-stats (let [stats-box (aget (.getElementById js/document "stats") "style")]
+                        (if (#{"" "none"} (aget stats-box "display"))
+                          (aset stats-box "display" "block")
+                          (aset stats-box "display" "none")))))
+    (recur)))
 
 (defn init!
   "Initialise event handlers, add atom watches, do the first rendering"
   []
-  (set! (.-onresize js/window) (fn [] (re-render! app-state)))
+  (let [messages (chan)]
 
-  (add-watch app-state :state-changed handle-state-change!)
+    (start-event-handler! messages)
 
-  (add-overlay-handlers! (get @app-state :overlay-canvas))
+    (put! messages [:log {:level 1 :message "Initialisation function called..."}])
 
-  (set! (.-onkeydown js/window) handle-keydown!)
+    (set! (.-onresize js/window) (fn [] (put! messages [:render])))
 
-  (set! (.-onclick (.getElementById js/document "undo")) undo!)
+    (set! (.-onmousedown (:overlay-canvas @app-state)) (fn [e] (swap! app-state assoc :mousedown-event e)))
 
-  (set! (.-onclick (.getElementById js/document "reset")) #(reset-rendering-data! app-state))
+    (set! (.-onmousemove (:overlay-canvas @app-state)) (partial handle-mousemove messages))
 
-  (set! (.-onclick (.getElementById js/document "png")) #(open-as-png! (:canvas @app-state)))
+    (set! (.-onmouseup (:overlay-canvas @app-state)) (partial handle-mouseup messages))
 
-  (set! (.-onclick (.getElementById js/document "toggleStats")) (fn [e] (toggle-stats! app-state e)))
+    (set! (.-onkeydown js/window) (partial handle-keydown! messages))
+
+    (set! (.-onclick (.getElementById js/document "undo")) #(put! messages [:undo]))
+
+    (set! (.-onclick (.getElementById js/document "reset")) #(put! messages [:reset-rendering-data]))
+
+    (set! (.-onclick (.getElementById js/document "png"))
+          #(put! messages [:open-as-png (:canvas @app-state)]))
+
+    (set! (.-onclick (.getElementById js/document "toggleStats")) (fn [e] (put! messages [:toggle-stats])))
 
 
-  (re-render! app-state))
+    (put! messages [:render])))
 
 
 (defn on-js-reload
