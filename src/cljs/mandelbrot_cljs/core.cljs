@@ -184,6 +184,9 @@
 
     (start-event-handler! messages)
 
+    (maximize-canvas-dimensions! (:overlay-canvas @app-state))
+    (maximize-canvas-dimensions! (:canvas @app-state))
+
     (put! messages [:log {:level 1 :message "Initialisation function called..."}])
 
     (set! (.-onresize js/window) (fn [] (put! messages [:render])))
