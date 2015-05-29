@@ -120,6 +120,14 @@
 
         :log (.log js/console (:message body))
 
+        :keydown (handle-keydown! messages body)
+
+        :mousedown (swap! app-state assoc :mousedown-event body)
+
+        :mouseup (handle-mouseup messages body)
+
+        :mousemove (handle-mousemove messages body)
+
         :undo (undo! messages)
 
         :open-as-png (open-as-png! body)
@@ -191,13 +199,13 @@
 
     (set! (.-onresize js/window) (fn [] (put! messages [:render])))
 
-    (set! (.-onmousedown (:overlay-canvas @app-state)) (fn [e] (swap! app-state assoc :mousedown-event e)))
+    (set! (.-onmousedown (:overlay-canvas @app-state)) #(put! messages [:mousedown %]))
 
-    (set! (.-onmousemove (:overlay-canvas @app-state)) (partial handle-mousemove messages))
+    (set! (.-onmousemove (:overlay-canvas @app-state)) #(put! messages [:mousemove %]))
 
-    (set! (.-onmouseup (:overlay-canvas @app-state)) (partial handle-mouseup messages))
+    (set! (.-onmouseup (:overlay-canvas @app-state)) #(put! messages [:mouseup %]))
 
-    (set! (.-onkeydown js/window) (partial handle-keydown! messages))
+    (set! (.-onkeydown js/window) #(put! messages [:keydown %]))
 
     (set! (.-onclick (.getElementById js/document "undo")) #(put! messages [:undo]))
 
