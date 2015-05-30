@@ -6,6 +6,8 @@
 
             [mandelbrot-cljs.stats :refer [render-stats!]]
 
+            [cemerick.url :refer [url]]
+
             [cljs.core.async :refer [chan <! put!]])
 
   (:require-macros [cljs.core.async.macros :refer [go-loop]]))
@@ -18,10 +20,9 @@
 (defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
                           :overlay-canvas (.getElementById js/document "overlay-canvas")
                           :escape-radius  10000
-                          :rendering-data initial-rendering-data
                           :stats          {}}))
 
-(defonce rendering-data-history (atom [initial-rendering-data]))
+(defonce rendering-data-history (atom []))
 
 (defn undo!
   "Revert app-state to the previous value and queue up a re-render
@@ -108,6 +109,24 @@
              (aget e "ctrlKey"))
     (put! messages [:open-as-png (:canvas @app-state)])))
 
+(defn get-rendering-data-from-url
+  "Gets a rendering-level from the url parameters, or returns nil"
+  []
+  (let [{:keys [query] :as full-url} (url (aget (aget js/window "location")"href"))
+        query                        (into {} (map (fn [[k v]] [(keyword k) v]) query))]
+    (println full-url)
+    (when (and (:x0 query) (:y0 query) (:width query) (:height query))
+      query)))
+
+(defn save-rendering-data-in-url!
+  [{:as rendering-data}]
+  (let [current-url (url (aget (aget js/window "location") "href"))]
+    (.pushState
+     (aget js/window "history")
+     ""
+     ""
+     (.toString (assoc current-url :query rendering-data)))))
+
 
 (defn start-event-handler!
   "Main handler for messages on our core.async channel"
@@ -162,7 +181,7 @@
                                (-> old-state
                                    (assoc :point-information-fn point-information-fn))))
 
-
+            (save-rendering-data-in-url! (:rendering-data body))
             (put! messages [:add-to-rendering-data-history (:rendering-data body)])
             (put! messages [:update-stats stats])))
 
@@ -187,6 +206,9 @@
   "Initialise event handlers, add atom watches, do the first rendering"
   []
   (let [messages (chan)]
+
+    (let [rendering-data (or (get-rendering-data-from-url) initial-rendering-data)]
+      (swap! app-state assoc :rendering-data rendering-data))
 
     (start-event-handler! messages)
 
