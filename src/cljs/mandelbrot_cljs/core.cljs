@@ -48,8 +48,6 @@
                                    :y0 start-imaginary
                                    :width (- finish-real start-real)
                                    :height (- start-imaginary finish-imaginary)})))))
-
-  (println (:rendering-data @app-state))
   (put! messages [:render]))
 
 (defn handle-mouseup
