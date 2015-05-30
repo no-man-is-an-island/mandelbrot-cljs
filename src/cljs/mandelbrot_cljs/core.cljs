@@ -12,6 +12,8 @@
 
 (enable-console-print!)
 
+(def ^:dynamic *log-level* 1)
+
 
 (defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
                           :overlay-canvas (.getElementById js/document "overlay-canvas")
@@ -118,7 +120,7 @@
     (when-let [[event body] (<! messages)]
       (case event
 
-        :log (.log js/console (:message body))
+        :log (when (<= *log-level* (:level body)) (.log js/console (:message body)))
 
         :keydown (handle-keydown! messages body)
 
