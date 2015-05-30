@@ -114,7 +114,6 @@
   []
   (let [{:keys [query] :as full-url} (url (aget (aget js/window "location")"href"))
         query                        (into {} (map (fn [[k v]] [(keyword k) v]) query))]
-    (println full-url)
     (when (and (:x0 query) (:y0 query) (:width query) (:height query))
       query)))
 
