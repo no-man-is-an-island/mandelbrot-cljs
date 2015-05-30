@@ -38,14 +38,17 @@
   [messages startx starty finishx finishy]
   (swap!
    app-state
-   (fn [{:as old-state :keys [mousedown-event overlay-canvas rendered-rectangle]}]
-     (let [{:keys [x0 y0 scale]} rendered-rectangle]
+   (fn [{:as old-state :keys [point-information-fn]}]
+     (let [{start-real :real start-imaginary :imaginary} (point-information-fn startx starty)
+           {finish-real :real finish-imaginary :imaginary} (point-information-fn finishx finishy)]
        (-> old-state
            (dissoc :mousedown-event)
-           (assoc :rendering-data {:x0 (+ x0 (/ startx scale))
-                                   :y0 (- y0 (/ starty scale))
-                                   :width (/ (- finishx startx) scale)
-                                   :height (/ (- finishy starty) scale)})))))
+           (assoc :rendering-data {:x0 start-real
+                                   :y0 start-imaginary
+                                   :width (- finish-real start-real)
+                                   :height (- start-imaginary finish-imaginary)})))))
+
+  (println (:rendering-data @app-state))
   (put! messages [:render]))
 
 (defn handle-mouseup
@@ -78,19 +81,12 @@
   is at."
   [messages e]
 
-  (let [{:keys [x0 y0 scale]} (:rendered-rectangle @app-state)
-        x                     (+ x0 (/ (aget e "pageX") scale))
-        y                     (- y0 (/ (aget e "pageY") scale))
-        max-iterations        (int (* 10 (Math/log scale)))
-        iterations            (js/mandelbrot_smoothed_iteration_count
-                               (* (:escape-radius @app-state) (:escape-radius @app-state))
-                               max-iterations
-                               x y)]
+  (let [{:keys [real imaginary iterations]} ((:point-information-fn @app-state)
+                                             (aget e "pageX") (aget e "pageY"))]
 
-    (put! messages [:update-stats {:current-x x
-                                   :current-y y
-                                   :current-iterations
-                                   (if (>= iterations max-iterations) "infinity" (long iterations))}]))
+    (put! messages [:update-stats {:current-x real
+                                   :current-y imaginary
+                                   :current-iterations iterations}]))
 
   (when-let [mousedown (get @app-state :mousedown-event)]
 
@@ -159,12 +155,12 @@
           (maximize-canvas-dimensions! (:overlay-canvas body))
           (maximize-canvas-dimensions! (:canvas body))
 
-          (let [{:keys [rendered-rectangle stats]}
+          (let [{:keys [point-information-fn stats]}
                 (render-mandelbrot! (:canvas body) (:rendering-data body))]
 
             (swap! app-state (fn [old-state]
                                (-> old-state
-                                   (assoc :rendered-rectangle rendered-rectangle))))
+                                   (assoc :point-information-fn point-information-fn))))
 
 
             (put! messages [:add-to-rendering-data-history (:rendering-data body)])

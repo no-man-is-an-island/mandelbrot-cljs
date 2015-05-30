@@ -56,8 +56,7 @@
 
   (let [screen-width             (.-width canvas)
         screen-height            (.-height canvas)
-        {:keys [x0 y0 scale]
-         :as rendered-rectangle} (enclosing-rectangle x0 y0 width height screen-width screen-height)
+        {:keys [x0 y0 scale]}    (enclosing-rectangle x0 y0 width height screen-width screen-height)
 
         max-iterations           (int (* 10 (Math/log scale))) ; Sensible?
         start                    (.getTime (js/Date.))
@@ -90,7 +89,18 @@
     (let [render-speed (int (* 1000 (/ (* screen-height screen-width)
                                        (- (.getTime (js/Date.)) start))))]
 
-      {:rendered-rectangle rendered-rectangle
+      {:point-information-fn
+       (fn [x y]
+         (let [real (+ (/ x scale) x0)
+               imaginary (-  y0 (/ y scale))
+               iterations (js/mandelbrot_smoothed_iteration_count
+                           escape-radius-squared
+                           max-iterations
+                           real imaginary)]
+           {:real       real
+            :imaginary  imaginary
+            :iterations (if (>= iterations max-iterations) js/Infinity (long iterations))}))
+
        :stats
        {:render-speed render-speed
         :scale (long scale)

@@ -34,6 +34,6 @@
         (str "Imaginary: " current-y ))
 
   (aset (.getElementById js/document "currentIterations") "innerHTML"
-        (str "Iterations to Escape: " (if (= "infinity" current-iterations)
-                                        "infinity"
+        (str "Iterations to Escape: " (if (= js/Infinity current-iterations)
+                                        "Infinity"
                                         (format-comma current-iterations)) )))
