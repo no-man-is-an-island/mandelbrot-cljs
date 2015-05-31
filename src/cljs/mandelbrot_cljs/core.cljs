@@ -19,7 +19,6 @@
 
 (defonce app-state (atom {:canvas         (.getElementById js/document "canvas")
                           :overlay-canvas (.getElementById js/document "overlay-canvas")
-                          :escape-radius  10000
                           :stats          {}}))
 
 (defonce rendering-data-history (atom []))
