@@ -110,7 +110,7 @@
   "Gets a rendering-level from the url parameters, or returns nil"
   []
   (let [{:keys [query] :as full-url} (url (aget (aget js/window "location")"href"))
-        query                        (into {} (map (fn [[k v]] [(keyword k) v]) query))]
+        query                        (into {} (map (fn [[k v]] [(keyword k) (js/parseFloat v)]) query))]
     (when (and (:x0 query) (:y0 query) (:width query) (:height query))
       query)))
 
