@@ -54,18 +54,20 @@
   variables for this kind of thing - I got it to be only ~10 times slower using the >> and << macros)"
   [canvas {:keys [width height x0 y0] :as render-state}]
 
-  (let [screen-width             (.-width canvas)
-        screen-height            (.-height canvas)
-        {:keys [x0 y0 scale]}    (enclosing-rectangle x0 y0 width height screen-width screen-height)
+  (let [screen-width          (.-width canvas)
+        screen-height         (.-height canvas)
+        {:keys [x0 y0 scale]} (enclosing-rectangle x0 y0 width height screen-width screen-height)
 
-        max-iterations           (int (+ 200 (/ (Math/pow (Math/log scale) 3) 10))) ; Sensible?
-        start                    (.getTime (js/Date.))
+        max-iterations        (int (+ 100 (/ (Math/pow (Math/log scale) 3) 5))) ; Sensible?
+        start                 (.getTime (js/Date.))
 
-        context                  (.getContext canvas "2d")
-        idata                    (.createImageData context screen-width screen-height)
-        data                     (.-data idata)
+        context               (.getContext canvas "2d")
+        idata                 (.createImageData context screen-width screen-height)
+        data                  (.-data idata)
 
-        escape-radius-squared    1000000000]
+        escape-radius-squared 1000000000
+        min-intensity         (atom 255)
+        max-intensity         (atom 0)]
 
     (forloop
      [(x 0) (< x screen-width)  (inc x)]
@@ -76,15 +78,37 @@
             imaginary  (- (/ y scale) y0)
             iterations (js/mandelbrot_smoothed_iteration_count escape-radius-squared max-iterations real imaginary)
 
-            intensity  (if (>= iterations max-iterations) 0 (* 255 (/ iterations max-iterations)))
+            intensity  (if (>= iterations max-iterations) 0 (* 255 (/ (Math/pow iterations 0.7) (Math/pow max-iterations 0.7))))
             data-index (* 4 (+ x (* y screen-width)))]
+
+        (when (> intensity @max-intensity)
+          (reset! max-intensity intensity))
+
+        (when (< intensity @min-intensity)
+          (reset! min-intensity intensity))
 
         (aset data data-index intensity)
         (aset data (+ data-index 1) intensity)
         (aset data (+ data-index 2) intensity)
         (aset data (+ data-index 3) 255))))
 
+    (forloop
+     [(x 0) (< x screen-width)  (inc x)]
+     (forloop
+      [(y 0) (< y screen-height) (inc y)]
+
+      (let [data-index    (* 4 (+ x (* y screen-width)))
+            intensity     (aget data data-index)
+            new-intensity (* (- intensity @min-intensity)
+                             (/ 255 (- @max-intensity @min-intensity)))]
+
+        (aset data data-index new-intensity)
+        (aset data (+ data-index 1) new-intensity)
+        (aset data (+ data-index 2) new-intensity))))
+
     (.putImageData context idata 0 0)
+
+
 
     (let [render-speed (int (* 1000 (/ (* screen-height screen-width)
                                        (- (.getTime (js/Date.)) start))))]
