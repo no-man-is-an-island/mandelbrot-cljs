@@ -58,7 +58,7 @@
         screen-height            (.-height canvas)
         {:keys [x0 y0 scale]}    (enclosing-rectangle x0 y0 width height screen-width screen-height)
 
-        max-iterations           (int (+ 100 (* (Math/log scale) (Math/log scale)))) ; Sensible?
+        max-iterations           (int (+ 200 (/ (Math/pow (Math/log scale) 3) 10))) ; Sensible?
         start                    (.getTime (js/Date.))
 
         context                  (.getContext canvas "2d")
