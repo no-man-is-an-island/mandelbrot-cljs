@@ -19,16 +19,16 @@ function mandelbrot_smoothed_iteration_count(
     initial_real,
     initial_imaginary){
 
-    mod_z = (initial_real * initial_real) + (initial_imaginary * initial_imaginary);
+    var mod_z = (initial_real * initial_real) + (initial_imaginary * initial_imaginary);
 
-    real = initial_real;
-    imaginary = initial_imaginary;
+    var real = initial_real;
+    var imaginary = initial_imaginary;
 
-    iterations = 0;
+    var iterations = 0;
 
     while (mod_z < escape_radius_squared && iterations != max_iterations){
 
-        new_real = (real * real) - (imaginary * imaginary) + initial_real;
+        var new_real = (real * real) - (imaginary * imaginary) + initial_real;
         imaginary = (2 * real * imaginary) + initial_imaginary;
         real = new_real;
         mod_z = (real * real) + (imaginary * imaginary);
