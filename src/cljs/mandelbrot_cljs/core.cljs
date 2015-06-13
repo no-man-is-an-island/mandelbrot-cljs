@@ -199,7 +199,7 @@
     (recur)))
 
 (defn init!
-  "Initialise event handlers, add atom watches, do the first rendering"
+  "Start the message processing thread, set JS event handlers and do the first rendering"
   []
   (let [messages (chan)]
 
